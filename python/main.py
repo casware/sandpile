@@ -17,12 +17,12 @@ from matplotlib import pyplot
 
 from sandpile import SandPile
 
-def example_plotting():
-   pile = SandPile(40, 40)
-   for i in range(100):
-       pile.drop_sand()
 
-   pile.graph()
+def example_plotting():
+    pile = SandPile(400, 400)
+    pile.simulate(1600000)
+    pile.graph()
+
 
 def main():
     # Make sure that the output/ directory exists, or create it otherwise.
@@ -30,16 +30,8 @@ def main():
     if not output_dir.is_dir():
         output_dir.mkdir()
 
-    pile = SandPile(8,8)
 
-    pile.simulate(11, 1, [0,0])
-    print('Mean mass:')
-    print(np.mean(pile.grid))
-    print("Max:")
-    print(np.max(pile.grid))
-    print(pile.grid)
     example_plotting()
-
 
 
 if __name__ == "__main__":

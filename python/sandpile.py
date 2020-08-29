@@ -21,12 +21,9 @@ class SandPile:
         # step (so that `len(self.mass_history)` is equal to the number of time
         # steps the sand pile has been running).
         self.mass_history = [0]
-        # You probably will want to define other attributes to store statistics.
-        self.topples_history = []
-        self.area_history = []
-        # It is good practice to define *all* class attributes in the
-        # `__init__` function, even if they get redefined later.  You may want
-        # to define variables which are used to keep track of avalanches.
+        self.topples_history = []   # Number of topples to reach stability in avalanche
+        self.area_history = []      # Number of unique sites reached in avalanche
+        self.length_history = []    # Maximum radius of avalanche
 
     def drop_sand(self, n=1, site=None):
         """Add `n` grains of sand to the grid.  Each grains of sand is added to
@@ -55,7 +52,7 @@ class SandPile:
         else:
             place = tuple(site)
 
-        self.grid[place] += 1
+        self.grid[place] += n
 
         # Call avalanche to stabilize the configuration and updated as needed
         self.avalanche(place, n)
@@ -88,29 +85,35 @@ class SandPile:
 
     def topple(self, site):
         ''' Topples a site, if the number of grains is greater than the threshold
-        Returns a boolean indicating whether toppling occured and the number grains deleted '''
+        Returns a boolean indicating whether toppling occured '''
+        # Use tuple below because a list will not index properly (learned this the hard way)
+        # Also, using a tuple instead of explicit destructuring means it will be easier
+        # to extend to higher dimensional grid if desired
         if self.grid[tuple(site)] < self.threshold:
             return [False, 0]
 
         neighbors = self.get_neighbors(site)
-        deleted = 2*self.dimension - len(neighbors)
         # Move sand to neighbors
         for neighbor in neighbors:
             self.grid[tuple(neighbor)] += 1
 
         self.grid[tuple(site)] = 0
-        return [True, deleted]
+        return True
 
     def avalanche(self, start, n):
         """Run the avalanche causing all sites to topple and store the stats of
         the avalanche in the appropriate variables.
+        start: site sand is dropped, beginning cascade
         n: number of grains added
         """
-        did_topple, deleted = self.topple(start)
+        did_topple = self.topple(start)
 
         # If no topples, update history and return
         if did_topple == False:
-            self.mass_history.append(self.mass_history[-1] + n)
+            self.mass_history.append(self.mass())
+            self.topples_history.append(0)
+            self.area_history.append(0)
+            self.length_history.append(0)
             # Do not append to topples or area history since we only want stats from real topples
             return
 
@@ -121,8 +124,7 @@ class SandPile:
         topples = 1
         while len(buffer) > 0:
             current = buffer[0]
-            did_topple, new_deleted = self.topple(current)
-            deleted += new_deleted
+            did_topple = self.topple(current)
             sites_affected = sites_affected.union(tuple(current))
             distance = max(distance, self.dist(start, current))
 
@@ -134,9 +136,10 @@ class SandPile:
             topples += 1
 
         # Update statistics
-        self.mass_history.append(self.mass_history[-1] + n - deleted)
+        self.mass_history.append(self.mass())
         self.topples_history.append(topples)
         self.area_history.append(len(sites_affected))
+        self.length_history.append(distance)
 
     def dist(self, x, y):
         '''Distance between two sites x,y'''
@@ -155,8 +158,29 @@ class SandPile:
 
 
     def graph(self):
-        fig, ax = pyplot.subplots()
-        ax.set_title("Grid plot")
-        ax.imshow(self.grid)
+        fig, (ax1, ax2, ax3, ax4, ax5) = pyplot.subplots(5,1, figsize=(15, 20))
+        # Plot the grid
+        ax1.set_title("Grid plot")
+        ax1.imshow(self.grid)
+
+        # Plot mass per site
+        ax2.set_title("Mass per site:")
+        scaled_mass_history = np.array(self.mass_history[1:]) / (self.width * self.height)
+        ax2.plot(range(len(self.mass_history[1:])), scaled_mass_history)
+
+        # Plot number of topples
+        ax3.set_title("Topples History")
+        ax3.plot(range(len(self.topples_history)), self.topples_history)
+
+        # Plot Length
+        ax4.set_title("Length")
+        ax4.plot(self.length_history)
+
+        # Plot area
+        ax5.set_title("Area")
+        ax5.plot(self.area_history)
+
+        fig.savefig("output/grid.pdf")
+        pyplot.close(fig)
 
     # You are free (and encouraged) to define more methods within this class

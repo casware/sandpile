@@ -215,53 +215,72 @@ class SandPile:
 
         # Plot number of topples
         ax3.set_title("Topples History")
-        topples_data, exponent, location, scale = self.get_statistics(
+        topples_data, topples_frequency, exponent, intercept = self.get_statistics(
             self.topples_history)
         ax3.set_xlabel("Topples")
         ax3.set_ylabel("Frequency")
-        self.make_powerlaw_plot(topples_data, exponent, location, scale, ax3)
+        self.make_powerlaw_plot(topples_data, topples_frequency, exponent, intercept, ax3)
 
         # Plot Length
-        ax4.set_title("Length")
-        ax4.set_xlabel("Length of avalanche")
-        ax4.set_ylabel("Frequency")
-        length_data, exponent, location, scale = self.get_statistics(
-            self.length_history)
-        self.make_powerlaw_plot(length_data, exponent, location, scale, ax4)
+        #ax4.set_title("Length")
+        #ax4.set_xlabel("Length of avalanche")
+        #ax4.set_ylabel("Frequency")
+        #length_data, length_frequency, exponent, intercept = self.get_statistics(
+         #   self.length_history)
+        #self.make_powerlaw_plot(length_data, length_frequency, exponent, intercept, ax4)
 
         # Plot area
         ax5.set_title("Area")
-        ax5.set_xlabel("Area of avalanche")
-        ax5.set_ylabel("Frequency")
-        area_data, exponent, location, scale = self.get_statistics(
+        ax5.set_xlabel("log(area)")
+        ax5.set_ylabel("log(frequency)")
+        area_data, area_frequency, exponent, intercept = self.get_statistics(
             self.area_history)
-        self.make_powerlaw_plot(area_data, exponent, location, scale, ax5)
+        self.make_powerlaw_plot(area_data, area_frequency, exponent, intercept, ax5)
         fig.savefig("output/grid.pdf")
         pyplot.close(fig)
 
-        # Plot loss of mass
-
-        return [exponent, location, scale]
+        return [exponent, intercept]
 
     def get_statistics(self, field):
         '''Return power law statistics of the passed field
            Field should be one of area_history, length_history, etc. '''
         # Start our analysis mid-way through evolution, to avoid pre-critical noise
-        start = self.threshold*self.height*self.width
+        start = 2*self.threshold*self.height*self.width
         data = field[start:]
-        exponent, location, scale = stats.powerlaw.fit(
-            data)
 
-        return [data, exponent, location, scale]
+        # Pick a good range to analyze over;
+        # this is not a good range for the length;
+        # it is a good range for the area
+        # think of a better solution
+        lower = np.max([self.width, self.height])
+        upper = np.max(data) / 2
 
-    def make_powerlaw_plot(self, data, exponent, location, scale, axis):
+        # Get the counts; remove 0 so we can take a logarithm
+        counts = np.unique(data, return_counts=True)
+        counts = np.delete(counts, 0, 1)
+        log_data,log_frequency = np.log(counts)
+
+        # Keep the values which were between lower and upper; need to take the log
+        # of upper and lower since we have taken the log of the data
+        filtered_log_area = log_data[(log_data > np.log(lower)) & (log_data < np.log(upper))]
+        filtered_log_frequency = log_frequency[(log_data > np.log(lower)) & (log_data < np.log(upper))]
+
+        exponent, intercept = np.polyfit(filtered_log_area, filtered_log_frequency, 1)
+
+        return [log_data, log_frequency, exponent, intercept]
+
+    def make_powerlaw_plot(self, log_data, log_frequency, exponent, intercept, axis):
         '''Make a log-log plot of a power law, with data'''
-        x = np.logspace(np.log10(4),
-                        np.log10(np.max(data)))
-        axis.plot(x, stats.powerlaw.pdf(
-            x, exponent, loc=location, scale=scale))
-        axis.set_xscale('log')
-        axis.set_yscale('log', nonposy='clip')
-        axis.hist(data, bins=x)
+        axis.scatter(log_data, log_frequency)
+
+        plot_x = np.linspace(np.min(log_data), np.max(log_data))
+        plot_y = (lambda x: exponent*x + intercept)(plot_x)
+        axis.plot(plot_x, plot_y)
         axis.set_label('a =' + np.str(np.round(exponent, 3)))
         axis.legend(['a =' + np.str(np.round(exponent, 3))])
+
+    def log_hist(self, data):
+        counts = np.unique(data, return_counts=True)
+        counts = np.delete(counts, 0, 1)
+        x, y = np.log(counts)
+        pyplot.scatter(x, y)

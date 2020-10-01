@@ -16,13 +16,19 @@ import scipy.stats
 from matplotlib import pyplot
 
 from sandpile import SandPile
+pile = SandPile(50, 50, 4, True)
+pile.evolve()
 
-
-def example_plotting():
-    pile = SandPile(400, 400)
-    pile.simulate(1600000)
+def example_plotting(pile, steps):
+    pile.simulate(steps)
+    log_hist(pile.area_history[])
     pile.graph()
 
+def log_hist(data):
+    counts = np.unique(data, return_counts=True)
+    counts = np.delete(counts,0,1)
+    x,y = np.log(counts)
+    pyplot.scatter(x,y)
 
 def main():
     # Make sure that the output/ directory exists, or create it otherwise.
@@ -31,7 +37,6 @@ def main():
         output_dir.mkdir()
 
 
-    example_plotting()
 
 
 if __name__ == "__main__":

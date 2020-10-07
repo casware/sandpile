@@ -1,14 +1,13 @@
 import numpy as np
 import scipy as sp
 import scipy.stats as stats
-import scipy.spatial
+from scipy.stats import pearsonr
 from matplotlib import pyplot
 
 
 class SandPile:
     """SandPile class
     """
-
     def __init__(self, width, height, threshold=4, random=False):
         """Initialize a sandpile with the specified width and height."""
         self.width = width
@@ -200,44 +199,68 @@ class SandPile:
         return self.width*site[0] + site[1]
 
     def graph(self):
-        fig, (ax1, ax2, ax3, ax4, ax5) = pyplot.subplots(
-            5, 1, figsize=(15, 25))
+        fig, (ax1, ax2, ax3, ax4) = pyplot.subplots(
+            4, 1, figsize=(15, 25))
         start = int(len(self.mass_history) / 2)
-        # Plot the grid
-        ax1.set_title("Grid plot")
-        ax1.imshow(self.grid)
 
         # Plot mass per site
-        ax2.set_title("Mass loss:")
-        scaled_mass_history = [self.mass_history[i+1] - self.mass_history[i]
-                               for i in range(start, len(self.mass_history)-1)]
-        ax2.hist(scaled_mass_history)
+        ax1.set_title("Mass loss:")
+        # Shift mass loss and multiply by -1 so we can take log
+        loss_history = np.array([self.mass_history[i+1] - self.mass_history[i]
+                               for i in range(start, len(self.mass_history)-1)])
+        max_loss = np.max(loss_history)
+        scaled_history = -1*(loss_history - max_loss)
+        loss_data, loss_frequency, exponent, intercept = self.get_statistics(
+            scaled_history)
 
+        # Shift and scale back to original:
+        loss_data = -1*loss_data
+        exponent = -1*exponent
+        ax1.set_xlabel("log(loss)")
+        ax1.set_ylabel("log(frequencey)")
+        self.make_powerlaw_plot(
+            loss_data, loss_frequency, exponent, intercept, ax1)
+
+        # The following is inspired by https://stackoverflow.com/questions/4325733/save-a-subplot-in-matplotlib
+        # Change how we save this; they look ugly
+        extent = ax1.get_window_extent().transformed(fig.dpi_scale_trans.inverted())
+        # Pad the saved area by 10% in the x-direction and 20% in the y-direction
+        fig.savefig('output/loss.png', bbox_inches=extent.expanded(1.2, 1.2))
         # Plot number of topples
-        ax3.set_title("Topples History")
+        ax2.set_title("Topples History")
         topples_data, topples_frequency, exponent, intercept = self.get_statistics(
             self.topples_history)
-        ax3.set_xlabel("Topples")
-        ax3.set_ylabel("Frequency")
-        self.make_powerlaw_plot(topples_data, topples_frequency, exponent, intercept, ax3)
+        ax2.set_xlabel("log(topples)")
+        ax2.set_ylabel("log(frequencey)")
+        self.make_powerlaw_plot(topples_data, topples_frequency, exponent, intercept, ax2)
+        extent=ax2.get_window_extent().transformed(fig.dpi_scale_trans.inverted())
+        # Pad the saved area by 10% in the x-direction and 20% in the y-direction
+        fig.savefig('output/topples.png', bbox_inches=extent.expanded(1.2, 1.2))
 
         # Plot Length
-        #ax4.set_title("Length")
-        #ax4.set_xlabel("Length of avalanche")
-        #ax4.set_ylabel("Frequency")
-        #length_data, length_frequency, exponent, intercept = self.get_statistics(
-         #   self.length_history)
-        #self.make_powerlaw_plot(length_data, length_frequency, exponent, intercept, ax4)
+        ax3.set_title("Length")
+        ax3.set_xlabel("Length of avalanche")
+        ax3.set_ylabel("Frequency")
+        length_data, length_frequency, exponent, intercept = self.get_statistics(
+           self.length_history)
+        self.make_powerlaw_plot(length_data, length_frequency, exponent, intercept, ax3)
+        extent=ax3.get_window_extent().transformed(fig.dpi_scale_trans.inverted())
+        # Pad the saved area by 10% in the x-direction and 20% in the y-direction
+        fig.savefig('output/length.png', bbox_inches=extent.expanded(1.2, 1.2))
 
         # Plot area
-        ax5.set_title("Area")
-        ax5.set_xlabel("log(area)")
-        ax5.set_ylabel("log(frequency)")
+        ax4.set_title("Area")
+        ax4.set_xlabel("log(area)")
+        ax4.set_ylabel("log(frequency)")
         area_data, area_frequency, exponent, intercept = self.get_statistics(
             self.area_history)
-        self.make_powerlaw_plot(area_data, area_frequency, exponent, intercept, ax5)
+        self.make_powerlaw_plot(area_data, area_frequency, exponent, intercept, ax4)
+        extent=ax4.get_window_extent().transformed(fig.dpi_scale_trans.inverted())
+        # Pad the saved area by 10% in the x-direction and 20% in the y-direction
+        fig.savefig('output/area.png', bbox_inches=extent.expanded(1.2, 1.2))
         fig.savefig("output/grid.pdf")
         pyplot.close(fig)
+
 
         return [exponent, intercept]
 
@@ -248,16 +271,17 @@ class SandPile:
         start = 2*self.threshold*self.height*self.width
         data = field[start:]
 
-        # Pick a good range to analyze over;
-        # this is not a good range for the length;
-        # it is a good range for the area
-        # think of a better solution
-        lower = np.max([self.width, self.height])
-        upper = np.max(data) / 2
+        # This range was selected by a process of trial and error;
+        # it works tolerably well for length, area, topples, losses
+        # at least for small grid sizes; likely will be better fit
+        # for larger grid sizes
+        maximum = np.max(data)
+        lower = np.min([np.max([self.width, self.height]),maximum/4])
+        upper = maximum / 2
 
         # Get the counts; remove 0 so we can take a logarithm
         counts = np.unique(data, return_counts=True)
-        counts = np.delete(counts, 0, 1)
+        counts = np.delete(counts, 0,1)
         log_data,log_frequency = np.log(counts)
 
         # Keep the values which were between lower and upper; need to take the log
@@ -275,7 +299,7 @@ class SandPile:
 
         plot_x = np.linspace(np.min(log_data), np.max(log_data))
         plot_y = (lambda x: exponent*x + intercept)(plot_x)
-        axis.plot(plot_x, plot_y)
+        axis.plot(plot_x, plot_y, color='red')
         axis.set_label('a =' + np.str(np.round(exponent, 3)))
         axis.legend(['a =' + np.str(np.round(exponent, 3))])
 
@@ -284,3 +308,6 @@ class SandPile:
         counts = np.delete(counts, 0, 1)
         x, y = np.log(counts)
         pyplot.scatter(x, y)
+
+    def calculate_correlation(self, data1, data2):
+        return pearsonr(data1, data2)

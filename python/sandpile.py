@@ -199,12 +199,11 @@ class SandPile:
         return self.width*site[0] + site[1]
 
     def graph(self):
-        fig, (ax1, ax2, ax3, ax4) = pyplot.subplots(
-            4, 1, figsize=(15, 25))
+        fig, ax= pyplot.subplots()
         start = int(len(self.mass_history) / 2)
 
         # Plot mass per site
-        ax1.set_title("Mass loss:")
+        ax.set_title("Mass loss:")
         # Shift mass loss and multiply by -1 so we can take log
         loss_history = np.array([self.mass_history[i+1] - self.mass_history[i]
                                for i in range(start, len(self.mass_history)-1)])
@@ -216,51 +215,42 @@ class SandPile:
         # Shift and scale back to original:
         loss_data = -1*loss_data
         exponent = -1*exponent
-        ax1.set_xlabel("log(loss)")
-        ax1.set_ylabel("log(frequencey)")
+        ax.set_xlabel("log(loss)")
+        ax.set_ylabel("log(frequencey)")
         self.make_powerlaw_plot(
-            loss_data, loss_frequency, exponent, intercept, ax1)
+            loss_data, loss_frequency, exponent, intercept, ax)
+        fig.savefig('output/loss.png')
+        pyplot.cla() # clear axis
 
-        # The following is inspired by https://stackoverflow.com/questions/4325733/save-a-subplot-in-matplotlib
-        # Change how we save this; they look ugly
-        extent = ax1.get_window_extent().transformed(fig.dpi_scale_trans.inverted())
-        # Pad the saved area by 10% in the x-direction and 20% in the y-direction
-        fig.savefig('output/loss.png', bbox_inches=extent.expanded(1.2, 1.2))
         # Plot number of topples
-        ax2.set_title("Topples History")
+        ax.set_title("Topples History")
         topples_data, topples_frequency, exponent, intercept = self.get_statistics(
             self.topples_history)
-        ax2.set_xlabel("log(topples)")
-        ax2.set_ylabel("log(frequencey)")
-        self.make_powerlaw_plot(topples_data, topples_frequency, exponent, intercept, ax2)
-        extent=ax2.get_window_extent().transformed(fig.dpi_scale_trans.inverted())
-        # Pad the saved area by 10% in the x-direction and 20% in the y-direction
-        fig.savefig('output/topples.png', bbox_inches=extent.expanded(1.2, 1.2))
+        ax.set_xlabel("log(topples)")
+        ax.set_ylabel("log(frequencey)")
+        self.make_powerlaw_plot(topples_data, topples_frequency, exponent, intercept, ax)
+        fig.savefig('output/topples.png')
+        pyplot.cla() # clear axis
 
         # Plot Length
-        ax3.set_title("Length")
-        ax3.set_xlabel("Length of avalanche")
-        ax3.set_ylabel("Frequency")
+        ax.set_title("Length")
+        ax.set_xlabel("Length of avalanche")
+        ax.set_ylabel("Frequency")
         length_data, length_frequency, exponent, intercept = self.get_statistics(
            self.length_history)
-        self.make_powerlaw_plot(length_data, length_frequency, exponent, intercept, ax3)
-        extent=ax3.get_window_extent().transformed(fig.dpi_scale_trans.inverted())
-        # Pad the saved area by 10% in the x-direction and 20% in the y-direction
-        fig.savefig('output/length.png', bbox_inches=extent.expanded(1.2, 1.2))
+        self.make_powerlaw_plot(length_data, length_frequency, exponent, intercept, ax)
+        fig.savefig('output/length.png')
+        pyplot.cla() # clear axis
 
         # Plot area
-        ax4.set_title("Area")
-        ax4.set_xlabel("log(area)")
-        ax4.set_ylabel("log(frequency)")
+        ax.set_title("Area")
+        ax.set_xlabel("log(area)")
+        ax.set_ylabel("log(frequency)")
         area_data, area_frequency, exponent, intercept = self.get_statistics(
             self.area_history)
-        self.make_powerlaw_plot(area_data, area_frequency, exponent, intercept, ax4)
-        extent=ax4.get_window_extent().transformed(fig.dpi_scale_trans.inverted())
-        # Pad the saved area by 10% in the x-direction and 20% in the y-direction
-        fig.savefig('output/area.png', bbox_inches=extent.expanded(1.2, 1.2))
-        fig.savefig("output/grid.pdf")
-        pyplot.close(fig)
-
+        self.make_powerlaw_plot(area_data, area_frequency, exponent, intercept, ax)
+        fig.savefig('output/area.png')
+        pyplot.cla()
 
         return [exponent, intercept]
 
@@ -295,19 +285,18 @@ class SandPile:
 
     def make_powerlaw_plot(self, log_data, log_frequency, exponent, intercept, axis):
         '''Make a log-log plot of a power law, with data'''
-        axis.scatter(log_data, log_frequency)
+        axis.scatter(np.exp(log_data), np.exp(log_frequency))
 
         plot_x = np.linspace(np.min(log_data), np.max(log_data))
         plot_y = (lambda x: exponent*x + intercept)(plot_x)
-        axis.plot(plot_x, plot_y, color='red')
+        transformed_x = np.exp(plot_x)
+        transformed_y = np.exp(plot_y)
+        axis.plot(transformed_x, transformed_y, color='red')
+
+        axis.set_yscale('log')
+        axis.set_xscale('log')
         axis.set_label('a =' + np.str(np.round(exponent, 3)))
         axis.legend(['a =' + np.str(np.round(exponent, 3))])
-
-    def log_hist(self, data):
-        counts = np.unique(data, return_counts=True)
-        counts = np.delete(counts, 0, 1)
-        x, y = np.log(counts)
-        pyplot.scatter(x, y)
 
     def calculate_correlation(self, data1, data2):
         return pearsonr(data1, data2)

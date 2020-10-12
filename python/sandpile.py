@@ -1,9 +1,7 @@
 import numpy as np
-import scipy as sp
-import scipy.stats as stats
-from scipy.stats import pearsonr
-from matplotlib import pyplot
-
+from scipy.stats import pearsonr    # For calculating correlations
+from matplotlib import pyplot       # For plotting
+import sys                          # For printing to files
 
 class SandPile:
     """SandPile class
@@ -199,8 +197,15 @@ class SandPile:
         return self.width*site[0] + site[1]
 
     def graph(self):
+        '''
+        Save plots of the important figures and the correlation between them
+        to the 'output' directory.
+        This function assumes the 'output' directory exists; if it does not
+        an error will occur.
+        Consider refactoring into separate functions.
+        '''
         fig, ax= pyplot.subplots()
-        start = int(len(self.mass_history) / 2)
+        start = np.min([2*self.threshold*self.width*self.height, int(len(self.mass_history) /2)])
 
         # Plot mass per site
         ax.set_title("Mass loss:")
@@ -252,6 +257,7 @@ class SandPile:
         fig.savefig('output/area.png')
         pyplot.cla()
 
+        self.print_correlation('output/correlation.txt')
         return [exponent, intercept]
 
     def get_statistics(self, field):
@@ -298,5 +304,36 @@ class SandPile:
         axis.set_label('a =' + np.str(np.round(exponent, 3)))
         axis.legend(['a =' + np.str(np.round(exponent, 3))])
 
-    def calculate_correlation(self, data1, data2):
+    def correlation(self, data1, data2):
         return pearsonr(data1, data2)
+
+    def calculate_correlations(self):
+        ''' Calculates the correlation between area and 1) length 2) mass loss 3) topple number
+            It returns a list containing the correlation coefficients calculated between
+            area and each of the quantities in the above order:
+            area-length correlation, area-mass loss correlation, area - topples number
+        '''
+        start = 2*self.threshold*self.width*self.height
+        len_data = np.array(self.length_history[start:])
+        area_data = np.array(self.area_history[start:])
+        loss_data = np.array([self.mass_history[i+1] - self.mass_history[i]
+                            for i in range(start, len(self.mass_history)-1)])
+        topples_data = np.array(self.topples_history[start:])
+
+        # Calculate correlations between area and the other quantities
+        area_len_correlation = self.correlation(len_data, area_data)
+        area_loss_correlation = self.correlation(area_data, loss_data)
+        area_topples_correlation= self.correlation(area_data, topples_data)
+
+        return [area_len_correlation, area_loss_correlation, area_topples_correlation]
+
+    def print_correlation(self, file_name):
+        correlations = self.calculate_correlations()
+        original_stdout = sys.stdout  # Save a reference to the original standard output
+
+        with open(file_name, 'w') as f:
+            sys.stdout = f  # Change the standard output to the file
+            print('Area-Length Correlation: {}: pvalue: {}'.format(correlations[0][0], correlations[0][1]))
+            print('Area-Loss Correlation: {}: pvalue: {}'.format(correlations[1][0], correlations[1][1]))
+            print('Area-Topples Correlation: {}: pvalue: {}'.format(correlations[2][0], correlations[2][1]))
+            sys.stdout = original_stdout  # Reset the standard output to its original value

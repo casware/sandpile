@@ -21,6 +21,10 @@ def example_plotting(pile, steps):
     pile.simulate(steps)
     pile.graph()
 
+def ensemble_simulation(width, height, steps):
+    pile = SandPile(1,1)
+    pile.ensemble_simulate(width, height, steps)
+
 def main():
     # Make sure that the output/ directory exists, or create it otherwise.
     output_dir = Path.cwd() / "output"
@@ -28,7 +32,8 @@ def main():
         output_dir.mkdir()
 
     pile = SandPile(20, 20)
-    example_plotting(pile, 100000)
+    #example_plotting(pile, 100000)
+    ensemble_simulation(20,20, 10000)
 
 
 if __name__ == "__main__":

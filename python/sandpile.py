@@ -4,9 +4,11 @@ from matplotlib import pyplot       # For plotting
 import sys                          # For printing to files
 from pathlib import Path            # Create output directory
 
+
 class SandPile:
     """SandPile class
     """
+
     def __init__(self, width, height, threshold=4, random=False):
         """Initialize a sandpile with the specified width and height."""
         self.width = width
@@ -14,7 +16,7 @@ class SandPile:
         self.threshold = threshold
         self.dimension = 2
         if random:
-            self.grid = np.random.randint(0, 8, [width, height])
+            self.grid = np.random.randint(0, 3, [width, height])
 
         else:
             self.grid = np.zeros((width, height), dtype=int)
@@ -23,7 +25,8 @@ class SandPile:
         # overtime.  The following array will store the masses at each time
         # step (so that `len(self.mass_history)` is equal to the number of time
         # steps the sand pile has been running).
-        self.mass_history = [0]     # Need to start with 0 because we are going to take the difference
+        # Need to start with 0 because we are going to take the difference
+        self.mass_history = [0]
         self.topples_history = []   # Number of topples to reach stability in avalanche
         self.area_history = []      # Number of unique sites reached in avalanche
         self.length_history = []    # Maximum radius of avalanche
@@ -96,8 +99,8 @@ class SandPile:
             # Toppling is abelian, so we may topple in any order
             for i in range(0, self.width):
                 for j in range(0, self.height):
-                    if self.grid[i,j] >= self.threshold:
-                        self.topple([i,j])
+                    if self.grid[i, j] >= self.threshold:
+                        self.topple([i, j])
                         no_topples = False
 
             stable = no_topples
@@ -185,7 +188,8 @@ class SandPile:
             pile = SandPile(width, height, 4, True)
             pile.evolve()
             pile.drop_sand(n, site)
-            length_hist.extend(pile.length_history)     # Need to use .extend not .append becaust list
+            # Need to use .extend not .append because list
+            length_hist.extend(pile.length_history)
             area.extend(pile.area_history)
             topples.extend(pile.topples_history)
             mass_history.append(pile.mass())
@@ -196,9 +200,11 @@ class SandPile:
         pile.area_history = area
         pile.topples_history = topples
         pile.mass_history = mass_history
-        pile.graph('ensemble/', no_mass=True)
+        # Insert a 0 at beginning so all our correlations are properly aligned
+        pile.mass_history.insert(0, 0)
+        pile.graph('ensemble1/')
 
-        return [length_hist, area, topples]
+        return pile
 
     def get_1D_coord(self, site):
         '''A higher dimensional array can be uniquely mapped to a 1D array
@@ -206,7 +212,7 @@ class SandPile:
 
         return self.width*site[0] + site[1]
 
-    def graph(self, output='output1/', no_mass=False):
+    def graph(self, output='output/', no_mass=False):
         '''
         Save plots of the important figures and the correlation between them
         to the 'output' directory.
@@ -214,10 +220,7 @@ class SandPile:
         an error will occur.
         Consider refactoring into separate functions.
         '''
-        fig, ax= pyplot.subplots()
-        start = np.min([2*self.threshold*self.width*self.height, int(len(self.mass_history) /2)])
-
-
+        fig, ax = pyplot.subplots()
         output_dir = Path.cwd() / output
         if not output_dir.is_dir():
             output_dir.mkdir()
@@ -227,7 +230,7 @@ class SandPile:
             ax.set_title("Mass loss:")
             # Shift mass loss and multiply by -1 so we can take log
             loss_history = np.array([self.mass_history[i+1] - self.mass_history[i]
-                                 for i in range(start, len(self.mass_history)-1)])
+                                     for i in range(0, len(self.mass_history)-1)])
             max_loss = np.max(loss_history)
             scaled_history = -1*(loss_history - max_loss)
             loss_data, loss_frequency, exponent, intercept = self.get_statistics(
@@ -249,19 +252,21 @@ class SandPile:
             self.topples_history)
         ax.set_xlabel("log(topples)")
         ax.set_ylabel("log(frequencey)")
-        self.make_powerlaw_plot(topples_data, topples_frequency, exponent, intercept, ax)
+        self.make_powerlaw_plot(
+            topples_data, topples_frequency, exponent, intercept, ax)
         fig.savefig(output + 'topples.png')
-        pyplot.cla() # clear axis
+        pyplot.cla()  # clear axis
 
         # Plot Length
         ax.set_title("Length")
         ax.set_xlabel("Length of avalanche")
         ax.set_ylabel("Frequency")
         length_data, length_frequency, exponent, intercept = self.get_statistics(
-           self.length_history)
-        self.make_powerlaw_plot(length_data, length_frequency, exponent, intercept, ax)
+            self.length_history)
+        self.make_powerlaw_plot(
+            length_data, length_frequency, exponent, intercept, ax)
         fig.savefig(output + 'length.png')
-        pyplot.cla() # clear axis
+        pyplot.cla()  # clear axis
 
         # Plot area
         ax.set_title("Area")
@@ -269,7 +274,8 @@ class SandPile:
         ax.set_ylabel("log(frequency)")
         area_data, area_frequency, exponent, intercept = self.get_statistics(
             self.area_history)
-        self.make_powerlaw_plot(area_data, area_frequency, exponent, intercept, ax)
+        self.make_powerlaw_plot(
+            area_data, area_frequency, exponent, intercept, ax)
         fig.savefig(output + 'area.png')
         pyplot.cla()
 
@@ -282,26 +288,31 @@ class SandPile:
         # Start our analysis mid-way through evolution, to avoid pre-critical noise
         start = 2*self.threshold*self.height*self.width
         data = field[start:]
+        if len(data) == 0:
+            raise Exception("Not enough data")
 
         # This range was selected by a process of trial and error;
         # it works tolerably well for length, area, topples, losses
         # at least for small grid sizes; likely will be better fit
         # for larger grid sizes
         maximum = np.max(data)
-        lower = np.min([np.max([self.width, self.height]),maximum/4])
+        lower = np.min([np.max([self.width, self.height]), maximum/4])
         upper = maximum / 2
 
         # Get the counts; remove 0 so we can take a logarithm
         counts = np.unique(data, return_counts=True)
-        counts = np.delete(counts, 0,1)
-        log_data,log_frequency = np.log(counts)
+        counts = np.delete(counts, 0, 1)
+        log_data, log_frequency = np.log(counts)
 
         # Keep the values which were between lower and upper; need to take the log
         # of upper and lower since we have taken the log of the data
-        filtered_log_area = log_data[(log_data > np.log(lower)) & (log_data < np.log(upper))]
-        filtered_log_frequency = log_frequency[(log_data > np.log(lower)) & (log_data < np.log(upper))]
+        filtered_log_area = log_data[(log_data > np.log(
+            lower)) & (log_data < np.log(upper))]
+        filtered_log_frequency = log_frequency[(
+            log_data > np.log(lower)) & (log_data < np.log(upper))]
 
-        exponent, intercept = np.polyfit(filtered_log_area, filtered_log_frequency, 1)
+        exponent, intercept = np.polyfit(
+            filtered_log_area, filtered_log_frequency, 1)
 
         return [log_data, log_frequency, exponent, intercept]
 
@@ -334,14 +345,14 @@ class SandPile:
         len_data = np.array(self.length_history[start:])
         area_data = np.array(self.area_history[start:])
         loss_data = np.array([self.mass_history[i+1] - self.mass_history[i]
-                            for i in range(start, len(self.mass_history) - 1)])
+                              for i in range(start, len(self.mass_history) - 1)])
 
         topples_data = np.array(self.topples_history[start:])
 
         # Calculate correlations between area and the other quantities
         area_len_correlation = self.correlation(len_data, area_data)
         area_loss_correlation = self.correlation(area_data, loss_data)
-        area_topples_correlation= self.correlation(area_data, topples_data)
+        area_topples_correlation = self.correlation(area_data, topples_data)
 
         return [area_len_correlation, area_loss_correlation, area_topples_correlation]
 
@@ -351,7 +362,10 @@ class SandPile:
 
         with open(file_name, 'w') as f:
             sys.stdout = f  # Change the standard output to the file
-            print('Area-Length Correlation: {}: pvalue: {}'.format(correlations[0][0], correlations[0][1]))
-            print('Area-Loss Correlation: {}: pvalue: {}'.format(correlations[1][0], correlations[1][1]))
-            print('Area-Topples Correlation: {}: pvalue: {}'.format(correlations[2][0], correlations[2][1]))
+            print(
+                'Area-Length Correlation: {}: pvalue: {}'.format(correlations[0][0], correlations[0][1]))
+            print(
+                'Area-Loss Correlation: {}: pvalue: {}'.format(correlations[1][0], correlations[1][1]))
+            print(
+                'Area-Topples Correlation: {}: pvalue: {}'.format(correlations[2][0], correlations[2][1]))
             sys.stdout = original_stdout  # Reset the standard output to its original value

@@ -1,3 +1,0 @@
-Area-Length Correlation: 0.9353847015845782: pvalue: 0.0
-Area-Loss Correlation: 0.11344690945114483: pvalue: 6.372219422430832e-21
-Area-Topples Correlation: 0.9594337448194783: pvalue: 0.0

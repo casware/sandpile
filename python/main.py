@@ -16,10 +16,11 @@ import scipy.stats
 from matplotlib import pyplot
 
 from sandpile import SandPile
+from cylindrical import CylindricalSandPile
 
-def example_plotting(pile, steps):
+def example_plotting(pile, steps, output):
     pile.simulate(steps)
-    pile.graph()
+    pile.graph(output)
 
 def ensemble_simulation(width, height, steps):
     pile = SandPile(1,1)
@@ -31,9 +32,10 @@ def main():
     if not output_dir.is_dir():
         output_dir.mkdir()
 
-    pile = SandPile(20, 20)
-    #example_plotting(pile, 100000)
-    ensemble_simulation(20,20, 10000)
+    pile = CylindricalSandPile(20, 20)
+    example_plotting(pile, 100000, "cylinder/")
+    #ensemble_simulation(20,20, 10000)
+
 
 
 if __name__ == "__main__":

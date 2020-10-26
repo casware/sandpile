@@ -1,6 +1,7 @@
 import unittest
 import numpy as np
 from sandpile import SandPile
+from cylindrical import CylindricalSandPile
 
 
 class TestSandPile(unittest.TestCase):
@@ -19,6 +20,8 @@ class TestSandPile(unittest.TestCase):
         self.assertEqual(pile.mass(), 7)
 
     def test_topple(self):
+        """ Test a single topple (not a complete avalanche)
+        """
         pile = SandPile(4, 4)
         # Start with
         # [[4, 2, 0,0],
@@ -42,6 +45,33 @@ class TestSandPile(unittest.TestCase):
 
         self.assertEqual((pile.grid == expected).all(), True)
 
+    def test_cylinder_topple(self):
+        pile = CylindricalSandPile(4,4)
+        # Start with
+        # [[4, 2, 0,0],
+        # [3,0,0,0],
+        # [0,0,0,0],
+        # [0,0,0,0]]
+
+        # Topple should give
+        # [[0, 3, 0,0],
+        # [4,0,0,0],
+        # [0,0,0,0],
+        # [1,0,0,0]]
+        # Note that the indices of the python array are the transpose
+        # of what we would expect
+        expected = [[0, 3, 0, 0],
+                    [4, 0, 0, 0],
+                    [0, 0, 0, 0],
+                    [1, 0, 0, 0]]
+        pile.grid[0, 0] = 4
+        pile.grid[1, 0] = 3
+        pile.grid[0, 1] = 2
+        pile.topple([0, 0])
+
+        print(pile.grid)
+
+        self.assertEqual((pile.grid == expected).all(), True)
 
 if __name__ == '__main__':
     unittest.main()

@@ -32,8 +32,10 @@ def main():
     if not output_dir.is_dir():
         output_dir.mkdir()
 
+    #pile = SandPile(100,100)
+    #example_plotting(pile, 100000, "standard100x100v2/")
     pile = CylindricalSandPile(20, 20)
-    example_plotting(pile, 100000, "cylinder/")
+    example_plotting(pile, 100000, "cylinder100x100/")
     #ensemble_simulation(20,20, 10000)
 
 

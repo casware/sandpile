@@ -295,9 +295,8 @@ class SandPile:
         # it works tolerably well for length, area, topples, losses
         # at least for small grid sizes; likely will be better fit
         # for larger grid sizes
-        maximum = np.max(data)
-        lower = np.min([np.max([self.width, self.height]), maximum/4])
-        upper = maximum / 2
+        lower = 3
+        upper = 102
 
         # Get the counts; remove 0 so we can take a logarithm
         counts = np.unique(data, return_counts=True)

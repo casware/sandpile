@@ -39,6 +39,6 @@ class CylindricalSandPile(SandPile):
         '''Override Distance between two sites x,y'''
         # Make distance the manhattan distance
         # but need to wrap it around in the x-direction
-        xdist = min(abs(x[0]-y[0]), abs(x[0] + y[0]) % self.width)
+        xdist = min(abs(x[0]-y[0]), abs(self.width - (x[0] + y[0])))
         ydist = abs(x[1]-y[1])
         return xdist + ydist

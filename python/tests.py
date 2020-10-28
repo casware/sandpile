@@ -2,6 +2,7 @@ import unittest
 import numpy as np
 from sandpile import SandPile
 from cylindrical import CylindricalSandPile
+from hourglass import HourGlassSandPile
 
 
 class TestSandPile(unittest.TestCase):
@@ -41,12 +42,12 @@ class TestSandPile(unittest.TestCase):
         pile.grid[0, 0] = 4
         pile.grid[1, 0] = 3
         pile.grid[0, 1] = 2
-        pile.topple([0,0])
+        pile.topple([0, 0])
 
         self.assertEqual((pile.grid == expected).all(), True)
 
     def test_cylinder_topple(self):
-        pile = CylindricalSandPile(4,4)
+        pile = CylindricalSandPile(4, 4)
         # Start with
         # [[4, 2, 0,0],
         # [3,0,0,0],
@@ -68,10 +69,20 @@ class TestSandPile(unittest.TestCase):
         pile.grid[1, 0] = 3
         pile.grid[0, 1] = 2
         pile.topple([0, 0])
-
-        print(pile.grid)
-
         self.assertEqual((pile.grid == expected).all(), True)
+
+    def test_cylinder_distance(self):
+        pile = CylindricalSandPile(4, 4)
+        self.assertEqual((pile.dist([3, 0], [0, 0]) == 1), True)
+
+        pile2 = CylindricalSandPile(20,20)
+        self.assertEqual((pile2.dist([0,0], [18,0]) == 2), True)
+    def test_hourglass_distance(self):
+        pile = HourGlassSandPile(6, 6)
+        self.assertEqual((pile.dist([3, 0], [0, 0]) == 3), True)
+        self.assertEqual((pile.dist([5, 0], [0, 0]) == 1), True)
+        self.assertEqual((pile.dist([0, 0], [5, 4]) == 3), True)
+
 
 if __name__ == '__main__':
     unittest.main()

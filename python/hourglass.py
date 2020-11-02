@@ -18,6 +18,8 @@ class HourGlassSandPile(SandPile):
     def is_central(self, site):
         """
         Returns true if a site is contained in the central hole in the hourglass
+        The central hole is defined to be the holes in a radius of 2 from the
+        center of the grid
         """
         x = site[0]
         y = site[1]

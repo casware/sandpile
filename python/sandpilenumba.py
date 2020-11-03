@@ -6,6 +6,131 @@ from pathlib import Path            # Create output directory
 from numba import jit
 from numba.typed import List
 
+
+@jit(nopython=True, cache=True)
+def fast_avalanche(grid, threshold, width, height, start, mass_history,
+                   topples_history, length_history, area_history):
+    """Run the avalanche causing all sites to topple and store the stats of
+    the avalanche in the appropriate variables.
+    start: site sand is dropped, beginning cascade
+    """
+    buffer = topple(grid, width, height, threshold,
+                    width*start[0]+start[1])
+    # If no topples, update history and return
+    if len(buffer) == 0:
+        return grid
+
+    # If we had a topple, loop through neighbors until it dies
+    sites_affected = set([width*start[0] + start[1]])
+    distance = 0
+    topples = 1
+    while len(buffer) > 0:
+        current = buffer[0]
+        affected_sites = topple(grid, width, height, threshold,
+                                current)
+        sites_affected.add(current)
+        distance = max(distance, dist(start, current, width))
+
+        if len(affected_sites) > 0:
+            buffer.extend(affected_sites)
+
+        if grid[current] >= threshold:
+            buffer.append(current)
+
+        # Remove the first element
+        buffer = buffer[1:]
+        topples += 1
+
+    topples_history.append(topples)
+    length_history.append(distance)
+    area_history.append(len(sites_affected))
+    mass_history.append(np.sum(grid))
+
+
+
+@jit(nopython=True,cache=True)
+def drop_sand(grid, threshold, width, height, mass_history, topples_history,
+                area_history, length_history, steps, n, site):
+    """Add `n` grains of sand to the grid.  Each grains of sand is added to
+    a random site.
+
+    This function also increments the time by 1 and update the internal
+    `mass_history`.
+    Parameters
+    ==========
+    n: int
+        The number of grains of sand of drop at this time step.  If left
+        unspecified, defaults to 1.
+
+    site:
+        The site on which the grain(s) of sand should be dropped.  If `None`,
+        a random site is used.
+    """
+    for i in range(steps):
+        # if site == -1:
+        #    place = (np.random.randint(0, width),
+        #             np.random.randint(0, height))
+        # else:
+        #    place = tuple(site)
+
+        grid[site[0]*width + site[1]] += n
+
+        # Call avalanche to stabilize the configuration
+        fast_avalanche(
+            grid, threshold, width, height, site,
+            mass_history, topples_history, length_history, area_history)
+
+    return grid
+
+
+@jit(nopython=True, cache=True)
+def get_neighbors(site, width, height):
+    """
+        site: a list of coordinates
+        Returns a list containing the coordinates of its
+        nearest neighboring sites. If this list is shorter than 4, then
+        it is on a boundary and thus sand toppled from this site will be deleted
+        Neighbors returned in order Left, Right, Up, Down if these exist
+    """
+    y = site % width
+    x = int((site-y)/width)
+    ret = [i for i in range(0)]
+    if x > 0 and x < width:
+        ret.append(width*(x - 1) + y)
+    if x < (width-1):
+        ret.append((x+1)*width + y)
+    if y > 0 and y < height:
+        ret.append(width*x + y-1)
+    if y < (height - 1):
+        ret.append(width*x + y + 1)
+
+    return ret
+
+@jit(nopython=True, cache=True)
+def topple(grid, width, height, threshold, site):
+    ''' Topples a site, if the number of grains is greater than the threshold
+    Returns a boolean indicating whether toppling occured '''
+    # Use tuple below because a list will not index properly (learned this the hard way)
+    # Also, using a tuple instead of explicit destructuring means it will be easier
+    # to extend to higher dimensional grid if desired
+    if grid[site] < threshold:
+        return [i for i in range(0)]
+
+    neighbors = get_neighbors(site, width, height)
+    # Move sand to neighbors
+    for i in range(len(neighbors)):
+        grid[neighbors[i]] += 1
+
+    grid[site] -= threshold
+    return neighbors
+
+@jit(nopython=True, cache=True)
+def dist(x, index, width):
+    y = [int(index-(index % width) / width), index % width]
+    '''Distance between two sites x,y'''
+    # Make distance the manhattan distance
+    return abs(x[0] - y[0]) + abs(x[1]-y[1])
+
 class SandPile:
     """SandPile class
     """
@@ -43,130 +168,6 @@ class SandPile:
         self.length_history.append(0)
         self.length_history.pop()
 
-    @staticmethod
-    def drop_sand(grid, threshold, width, height, n=1, site=None):
-        """Add `n` grains of sand to the grid.  Each grains of sand is added to
-        a random site.
-
-        This function also increments the time by 1 and update the internal
-        `mass_history`.
-        Parameters
-        ==========
-        n: int
-          The number of grains of sand of drop at this time step.  If left
-          unspecified, defaults to 1.
-
-        site:
-          The site on which the grain(s) of sand should be dropped.  If `None`,
-          a random site is used.
-        """
-        place = site
-        if site == None:
-            place = (np.random.randint(0, self.width),
-                     np.random.randint(0, self.height))
-        else:
-            place = tuple(site)
-
-        self.grid[place] += n
-
-        # Call avalanche to stabilize the configuration
-        area_buffer = List()
-        area_buffer.append(0)
-        area_buffer.pop()
-        output = SandPile.fast_avalanche(
-            np.ndarray.flatten(self.grid), self.threshold, self.width, self.height, place,
-            SandPile.topple, SandPile.dist,
-            SandPile.get_neighbors, self.topples_history, self.length_history, area_buffer)
-        self.grid = np.reshape(output, (self.width, self.height))
-        self.area_history.append(np.unique(area_buffer).size)
-
-    @staticmethod
-    @jit(nopython=True)
-    def get_neighbors(site, width, height):
-        """
-            site: a list of coordinates
-            Returns a list containing the coordinates of its
-            nearest neighboring sites. If this list is shorter than 4, then
-            it is on a boundary and thus sand toppled from this site will be deleted
-            Neighbors returned in order Left, Right, Up, Down if these exist
-        """
-        y = site % width
-        x = int((site-y)/width)
-        ret = [i for i in range(0)]
-        if x > 0 and x < width:
-            ret.append(width*(x - 1) + y)
-        if x < (width-1):
-            ret.append((x+1)*width + y)
-        if y > 0 and y < height:
-            ret.append(width*x + y-1)
-        if y < (height - 1):
-            ret.append(width*x + y + 1)
-
-        return ret
-
-    @staticmethod
-    @jit(nopython=True)
-    def topple(grid, width, height, threshold, site, get_neighbors):
-        ''' Topples a site, if the number of grains is greater than the threshold
-        Returns a boolean indicating whether toppling occured '''
-        # Use tuple below because a list will not index properly (learned this the hard way)
-        # Also, using a tuple instead of explicit destructuring means it will be easier
-        # to extend to higher dimensional grid if desired
-        if grid[site] < threshold:
-            return [i for i in range(0)]
-
-        neighbors = get_neighbors(site, width, height)
-        # Move sand to neighbors
-        for i in range(len(neighbors)):
-            grid[neighbors[i]] += 1
-
-        grid[site] -= threshold
-        return neighbors
-
-    @staticmethod
-    @jit(nopython=True)
-    def fast_avalanche(grid, threshold, width, height, start, topple, dist, get_neighbors,
-        topples_history, length_history, area_history):
-        """Run the avalanche causing all sites to topple and store the stats of
-        the avalanche in the appropriate variables.
-        start: site sand is dropped, beginning cascade
-        """
-        buffer = topple(grid, width, height, threshold,
-               width*start[0]+start[1], get_neighbors)
-        # If no topples, update history and return
-        if len(buffer) == 0:
-            return grid
-
-        # If we had a topple, loop through neighbors until it dies
-        sites_affected = [width*start[0] + start[1]]
-        distance = 0
-        topples = 1
-        while len(buffer) > 0:
-            current = buffer[0]
-            affected_sites = topple(grid, width, height, threshold,
-                   current, get_neighbors)
-            sites_affected.append(current)
-            distance = max(distance, dist(start, current, width))
-
-            if len(affected_sites) > 0:
-                buffer.extend(affected_sites)
-
-            # Remove the first element
-            buffer = buffer[1:]
-            topples += 1
-
-        topples_history.append(topples)
-        length_history.append(distance)
-        area_history.extend(sites_affected)
-        return grid
-
-    @staticmethod
-    @jit(nopython=True)
-    def dist(x, index, width):
-        y = [int(index-(index % width) / width), index % width]
-        '''Distance between two sites x,y'''
-        # Make distance the manhattan distance
-        return abs(x[0] - y[0]) + abs(x[1]-y[1])
 
     def simulate(self, steps, n=1, site=None):
         ''' Evolve the system by dropping sand on the lattice
@@ -176,16 +177,16 @@ class SandPile:
         site: coordinates (list/tuple) of site to drop on;
             if none specified, drops are made on a random site
         '''
-        for _ in range(steps):
-            self.drop_sand(n, site)
+        if site == None:
+            place = (np.random.randint(0, self.width),
+                    np.random.randint(0, self.height))
+        else:
+            place = tuple(site)
 
-    @staticmethod
-    @jit
-    def get_1D_coord(width, x, y):
-        '''A higher dimensional array can be uniquely mapped to a 1D array
-        using site[0]*width + site[1].'''
-
-        return width*x + y
+        grid = drop_sand(np.ndarray.flatten(self.grid), self.threshold,
+                                self.width, self.height,self.mass_history,
+                                self.topples_history, self.length_history, self.area_history, n, steps, place)
+        self.grid = np.reshape(grid, (self.width, self.height))
 
     def graph(self, output='output/', no_mass=False):
         '''

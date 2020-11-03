@@ -46,6 +46,15 @@ class TestSandPile(unittest.TestCase):
 
         self.assertEqual((pile.grid == expected).all(), True)
 
+    def test_avalanche(self):
+        """
+        Make sure our avalanche is leaving us in a stable state.
+        """
+        pile = SandPile(100, 100, random=True)
+        pile.simulate(100, site=(50,50))
+        print(np.max(pile.grid))
+        self.assertEqual((np.max(pile.grid) < 4), True)
+
     def test_cylinder_topple(self):
         pile = CylindricalSandPile(4, 4)
         # Start with
@@ -84,7 +93,6 @@ class TestSandPile(unittest.TestCase):
         self.assertEqual((pile.dist([5, 0], [0, 0]) == 1), True)
         self.assertEqual((pile.dist([0, 0], [5, 4]) == 3), True)
 
-
     def test_sandpile_numba(self):
         pile = NSP(4,4)
         start = [[3, 3, 3, 0],
@@ -96,7 +104,7 @@ class TestSandPile(unittest.TestCase):
                     [2, 1, 0, 0],
                     [0, 0, 0, 0]]
         pile.grid=np.array(start)
-        pile.drop_sand(1, site=(0,0))
+        pile.simulate(1, site=(0,0))
         print(pile.grid)
         self.assertEqual((pile.grid == expected).all(), True)
         print(pile.area_history)

@@ -119,7 +119,7 @@ class SandPile:
         for neighbor in neighbors:
             self.grid[tuple(neighbor)] += 1
 
-        self.grid[tuple(site)] -= self.threshold
+        self.grid[tuple(site)] -= 4
         return neighbors
 
     def avalanche(self, start):
@@ -131,7 +131,7 @@ class SandPile:
         buffer = self.topple(start)
 
         # If no topples, update history and return
-        if len(buffer) > 0:
+        if len(buffer) == 0:
             self.mass_history.append(self.mass())
             self.area_history.append(0)
             self.topples_history.append(0)
@@ -150,6 +150,10 @@ class SandPile:
 
             if len(current_neighbors) > 0:
                 buffer.extend(current_neighbors)
+
+            # Need to make sure that the current site is actually stable
+            if self.grid[tuple(current)] >= 4:
+                buffer.append(current)
 
             # Remove the first element
             buffer = buffer[1:]
@@ -174,7 +178,6 @@ class SandPile:
         site: coordinates (list/tuple) of site to drop on;
             if none specified, drops are made on a random site
         '''
-
         for i in range(steps):
             self.drop_sand(n, site)
 

@@ -299,8 +299,8 @@ class SandPile:
         ax.set_xlabel("Area")
         ax.set_ylabel("Frequency")
         area_data, area_frequency, area_exponent, intercept = self.get_statistics(
-            self.area_history, upper=(self.width*self.height)/2,
-            lower=max(self.width, self.height))
+            self.area_history, upper=min((self.width*self.height)/2, 300),
+            lower=20)
         self.make_powerlaw_plot(
             area_data, area_frequency, ax, exponent=area_exponent, intercept=intercept)
         fig.savefig(output + 'areaAnalysis.png')
@@ -365,10 +365,6 @@ class SandPile:
         counts = np.unique(data, return_counts=True)
         counts = np.delete(counts, 0, 1)  # Delete first column to remove 0
         log_data, log_frequency = np.log(counts)
-        print(np.max(log_data))
-        print(np.min(log_data))
-        print(np.log(upper))
-        print(np.log(lower))
         # Keep the values which were between lower and upper; need to take the log
         # of upper and lower since we have taken the log of the data
         filtered_log_area = log_data[(log_data > np.log(
@@ -389,8 +385,6 @@ class SandPile:
 
         # If exponent/intercept are defined, plot them as well
         if exponent is not None and intercept is not None:
-            print(type(exponent))
-            print(type(intercept))
             plot_x = np.linspace(np.min(log_data), np.max(
                 log_data), dtype=np.float64)
             plot_y = exponent*plot_x + intercept

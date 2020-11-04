@@ -5,9 +5,11 @@ import sys                          # For printing to files
 from pathlib import Path            # Create output directory
 from numba import jit, boolean, int64
 
+
 class SandPile:
     """SandPile class
     """
+
     def __init__(self, width, height, threshold=4, random=False):
         """Initialize a sandpile with the specified width and height."""
         self.width = width
@@ -90,11 +92,11 @@ class SandPile:
     def evolve(self):
         '''Evolve from the given configuration (possibly unstable) untill all sites are less than the threshold.'''
         # Better way: find all the unstable sites and start toppling them
-        unstable = np.zeros((1,2), dtype=int)
+        unstable = np.zeros((1, 2), dtype=int)
         for i in range(0, self.width):
             for j in range(0, self.height):
                 if self.grid[i, j] >= self.threshold:
-                    unstable= np.concatenate((unstable, [[i,j]]))
+                    unstable = np.concatenate((unstable, [[i, j]]))
 
         # Topple until there is nothing left to topple
         while len(unstable) > 0:
@@ -103,7 +105,7 @@ class SandPile:
                 neighbors = self.get_neighbors(unstable[0])
                 unstable = np.concatenate((unstable, neighbors))
 
-            unstable = unstable[1:] # Remove current element
+            unstable = unstable[1:]  # Remove current element
 
     def topple(self, site):
         ''' Topples a site, if the number of grains is greater than the threshold
@@ -212,40 +214,42 @@ class SandPile:
 
         return self.width*site[0] + site[1]
 
-    def graph(self, output='output/', no_mass=False):
-        '''
-        Save plots of the important figures and the correlation between them
-        to the 'output' directory.
-        This function assumes the 'output' directory exists; if it does not
-        an error will occur.
-        Consider refactoring into separate functions.
-        '''
-        fig, ax = pyplot.subplots()
-        output_dir = Path.cwd() / output
-        if not output_dir.is_dir():
-            output_dir.mkdir()
-
-        # Plot mass per site
-        if no_mass != True:
+    def graph_loss(self, output, no_mass, fig, ax):
+        if no_mass == False:
             ax.set_title("Mass loss:")
+
             # Shift mass loss and multiply by -1 so we can take log
             loss_history = np.array([self.mass_history[i+1] - self.mass_history[i]
                                      for i in range(0, len(self.mass_history)-1)])
             max_loss = np.max(loss_history)
-            scaled_history = -1*(loss_history - max_loss)
+            scaled_history = -1 * (loss_history - max_loss)
             loss_data, loss_frequency, exponent, intercept = self.get_statistics(
-                scaled_history)
+                scaled_history, lower=max_loss, upper=max_loss*1.5)
 
-            # Shift and scale back to original:
-            loss_data = -1*loss_data
-            exponent = -1*exponent
-            ax.set_xlabel("log(loss)")
-            ax.set_ylabel("log(frequencey)")
+            ax.set_xlabel("Mass Loss")
+            ax.set_ylabel("Frequency")
             self.make_powerlaw_plot(
                 loss_data, loss_frequency, ax, exponent=exponent, intercept=intercept)
-            fig.savefig(output + 'loss.png')
+
+            # Mass sizes overlap if we are not careful
+            pyplot.setp(ax.get_xticklabels(), ha="right", rotation=45)
+            fig.savefig(output + 'lossAnalysis.png')
             pyplot.cla()  # clear axis
 
+            self.make_powerlaw_plot(loss_data, loss_frequency, ax)
+
+            # Mass size labels overlap if we are not careful
+            for label in ax.get_xticklabels():
+                label.set_ha("right")
+                label.set_rotation(45)
+
+            fig.savefig(output+'loss.png')
+
+            pyplot.cla()
+
+            return exponent
+
+    def graph_topples(self, output, fig, ax):
         # Plot number of topples
         # Because of the geometry of the system, we guess most topples
         # will be a multiple of 4. Only look at these
@@ -253,74 +257,118 @@ class SandPile:
         # result
         ax.set_title("Topples History")
         common_topples = [
-            topple for topple in self.topples_history if topple % 4 == 0]
-        _, _, exponent, intercept = self.get_statistics(
+            topple for topple in self.topples_history if topple % 4 != 0]
+        _, _, topples_exponent, intercept = self.get_statistics(
             common_topples)
         topples_data, topples_frequency, _, _ = self.get_statistics(
             self.topples_history)
-        ax.set_xlabel("log(topples)")
-        ax.set_ylabel("log(frequencey)")
+        ax.set_xlabel("Topples")
+        ax.set_ylabel("Frequency")
         self.make_powerlaw_plot(
-            topples_data, topples_frequency, ax, exponent=exponent, intercept=intercept)
-        fig.savefig(output + 'topples.png')
+            topples_data, topples_frequency, ax, exponent=topples_exponent, intercept=intercept)
+        fig.savefig(output + 'topplesAnalysis.png')
         pyplot.cla()  # clear axis
 
+        self.make_powerlaw_plot(
+            topples_data, topples_frequency, ax)
+        fig.savefig(output + 'topples.png')
+        pyplot.cla()  # clear axis
+        return topples_exponent
+
+    def graph_length(self, output, fig, ax):
         # Plot Length
         ax.set_title("Length")
         ax.set_xlabel("Length of avalanche")
         ax.set_ylabel("Frequency")
-        length_data, length_frequency, exponent, intercept = self.get_statistics(
-            self.length_history)
+        length_data, length_frequency, length_exponent, intercept = self.get_statistics(
+            self.length_history, upper=(self.width+self.height) / 2)
         self.make_powerlaw_plot(
-            length_data, length_frequency, ax, exponent=exponent, intercept=intercept)
+            length_data, length_frequency, ax, exponent=length_exponent, intercept=intercept)
+        fig.savefig(output + 'lengthAnalysis.png')
+        pyplot.cla()  # clear axis
+        self.make_powerlaw_plot(
+            length_data, length_frequency, ax)
         fig.savefig(output + 'length.png')
         pyplot.cla()  # clear axis
 
+        return length_exponent
+
+    def graph_area(self, output, fig, ax):
         # Plot area
         ax.set_title("Area")
-        ax.set_xlabel("log(area)")
-        ax.set_ylabel("log(frequency)")
-        area_data, area_frequency, exponent, intercept = self.get_statistics(
-            self.area_history)
+        ax.set_xlabel("Area")
+        ax.set_ylabel("Frequency")
+        area_data, area_frequency, area_exponent, intercept = self.get_statistics(
+            self.area_history, upper=(self.width*self.height)/2,
+            lower=max(self.width, self.height))
         self.make_powerlaw_plot(
-            area_data, area_frequency, ax, exponent=exponent, intercept=intercept)
+            area_data, area_frequency, ax, exponent=area_exponent, intercept=intercept)
+        fig.savefig(output + 'areaAnalysis.png')
+        pyplot.cla()
+        self.make_powerlaw_plot(
+            area_data, area_frequency, ax)
         fig.savefig(output + 'area.png')
         pyplot.cla()
 
-        # Plot mass
+        return area_exponent
+
+    def graph_density(self, output, fig, ax):
         ax.set_title("Mass Density")
         ax.set_xlabel("Density")
         ax.set_ylabel("Frequency")
-        start = self.get_start_index()
-        data = np.array(self.mass_history) / (self.width*self.height)
+        start = self.get_start_index() + 1  # Add one since we have a leading 0
+        data = np.array(self.mass_history[start:]) / (self.width*self.height)
+        mean_density = np.mean(data)
         counts = np.unique(data[start:], return_counts=True)
         ax.scatter(counts[0], counts[1])
         fig.savefig(output+'mass.png')
-        pyplot.cla()
+        pyplot.close(fig)
 
+        return mean_density
+
+    def graph(self, output='results/output/', no_mass=False):
+        '''
+        Save plots of the important figures and the correlation between them
+        to the 'output' directory.
+        This function assumes the 'output' directory exists; if it does not
+        an error will occur.
+        '''
+        fig, ax = pyplot.subplots()
+        output_dir = Path.cwd() / output
+        if not output_dir.is_dir():
+            output_dir.mkdir()
+
+        # Plot mass loss
+        self.graph_loss(output, no_mass, fig, ax)
+        topples_exponent = self.graph_topples(output, fig, ax)
+        length_exponent = self.graph_length(output, fig, ax)
+        area_exponent = self.graph_area(output, fig, ax)
+        mean_density = self.graph_density(output, fig, ax)
         self.print_correlation(output + 'correlation.txt')
+        return [topples_exponent, length_exponent, area_exponent, mean_density]
 
-    def get_statistics(self, field):
+    def get_statistics(self, field, upper=102, lower=3):
         '''Return power law statistics of the passed field
-           Field should be one of area_history, length_history, etc. '''
+           Field should be one of area_history, length_history, etc.
+           The upper/lower range was selected by a process of trial and error;
+           it works tolerably well for length, area, topples, losses
+           at least for small grid sizes; likely will be better fit
+           for larger grid sizes
+        '''
         # Start our analysis mid-way through evolution, to avoid pre-critical noise
         start = self.get_start_index()
         data = field[start:]
         if len(data) == 0:
             raise Exception("Not enough data")
 
-        # This range was selected by a process of trial and error;
-        # it works tolerably well for length, area, topples, losses
-        # at least for small grid sizes; likely will be better fit
-        # for larger grid sizes
-        lower = 3
-        upper = 102
-
         # Get the counts; remove 0 so we can take a logarithm
         counts = np.unique(data, return_counts=True)
-        counts = np.delete(counts, 0, 1)
+        counts = np.delete(counts, 0, 1)  # Delete first column to remove 0
         log_data, log_frequency = np.log(counts)
-
+        print(np.max(log_data))
+        print(np.min(log_data))
+        print(np.log(upper))
+        print(np.log(lower))
         # Keep the values which were between lower and upper; need to take the log
         # of upper and lower since we have taken the log of the data
         filtered_log_area = log_data[(log_data > np.log(
@@ -333,17 +381,19 @@ class SandPile:
 
         return [log_data, log_frequency, exponent, intercept]
 
-
-    def make_powerlaw_plot(self, log_data, log_frequency, axis, exponent='None', intercept='None'):
+    def make_powerlaw_plot(self, log_data, log_frequency, axis, exponent=None, intercept=None):
         '''Make a log-log plot of a power law, with data'''
         axis.set_yscale('log')
         axis.set_xscale('log')
         axis.scatter(np.exp(log_data), np.exp(log_frequency))
 
         # If exponent/intercept are defined, plot them as well
-        if type(exponent) != 'str' and type(intercept) != 'str':
-            plot_x = np.linspace(np.min(log_data), np.max(log_data))
-            plot_y = (lambda x: exponent*x + intercept)(plot_x)
+        if exponent is not None and intercept is not None:
+            print(type(exponent))
+            print(type(intercept))
+            plot_x = np.linspace(np.min(log_data), np.max(
+                log_data), dtype=np.float64)
+            plot_y = exponent*plot_x + intercept
             transformed_x = np.exp(plot_x)
             transformed_y = np.exp(plot_y)
             axis.plot(transformed_x, transformed_y, color='red')

@@ -12,8 +12,8 @@ class CylindricalSandPile(SandPile):
     the y-direction
     """
 
-    def __init__(self, width, height, threshold=4):
-        SandPile.__init__(self, width, height, threshold)
+    def __init__(self, width, height, threshold=4, random=False):
+        SandPile.__init__(self, width, height, threshold=threshold, random=random)
 
     def get_neighbors(self, site):
         """

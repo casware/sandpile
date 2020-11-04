@@ -12,8 +12,9 @@ class HourGlassSandPile(SandPile):
     zone in the middle through which sand may fall.
     """
 
-    def __init__(self, width, height, threshold=4):
-        SandPile.__init__(self, width, height, threshold)
+    def __init__(self, width, height, threshold=4, random=False):
+        SandPile.__init__(self, width, height,
+                          threshold=threshold, random=random)
 
     def is_central(self, site):
         """
@@ -23,7 +24,9 @@ class HourGlassSandPile(SandPile):
         """
         x = site[0]
         y = site[1]
-        if x == np.floor(self.width / 2) and y == np.floor(self.height / 2):
+        middle_x = np.floor(self.width / 2)
+        middle_y = np.floor(self.height / 2)
+        if abs(x-middle_x) < 4 and abs(y-middle_y) < 4:
             return True
         else:
             return False
@@ -52,8 +55,10 @@ class HourGlassSandPile(SandPile):
         return ret
 
     def topple(self, site):
-        ''' Topples a site, if the number of grains is greater than the threshold
-        Returns a boolean indicating whether toppling occured '''
+        '''
+        Topples a site, if the number of grains is greater than the threshold
+        Returns a list of affected neighbors
+        '''
         # Use tuple below because a list will not index properly (learned this the hard way)
         # Also, using a tuple instead of explicit destructuring means it will be easier
         # to extend to higher dimensional grid if desired
@@ -65,7 +70,7 @@ class HourGlassSandPile(SandPile):
             self.grid[tuple(site)] = 0
 
         if self.grid[tuple(site)] < self.threshold:
-            return False
+            return []
 
         neighbors = self.get_neighbors(site)
         # Move sand to neighbors
@@ -73,7 +78,7 @@ class HourGlassSandPile(SandPile):
             self.grid[tuple(neighbor)] += 1
 
         self.grid[tuple(site)] -= 4
-        return True
+        return neighbors
 
     def dist(self, x, y):
         '''Override Distance between two sites x,y'''

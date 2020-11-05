@@ -50,9 +50,33 @@ class TestSandPile(unittest.TestCase):
         """
         Make sure our avalanche is leaving us in a stable state.
         """
+        pile = SandPile(4, 4)
+        # Start with
+        # [[3, 2, 0,0],
+        # [3,0,0,0],
+        # [0,0,0,0],
+        # [0,0,0,0]]
+
+        # Topple should give
+        # [[1, 3, 0,0],
+        # [0,1,0,0],
+        # [1,0,0,0],
+        # [0,0,0,0]]
+        pile.grid[0, 0] = 3
+        pile.grid[1, 0] = 3
+        pile.grid[0, 1] = 2
+        pile.drop_sand(1, (0,0))
+        print(pile.topples_history)
+        print(pile.grid)
+
+        # Make sure the stats are collected properly
+        self.assertEqual((pile.area_history == [5]), True)
+        self.assertEqual((pile.length_history == [2]), True)
+        self.assertEqual((pile.topples_history == [2]), True)
+        self.assertEqual((pile.mass() == 6), True)
+
         pile = SandPile(100, 100, random=True)
         pile.simulate(100, site=(50,50))
-        print(np.max(pile.grid))
         self.assertEqual((np.max(pile.grid) < 4), True)
 
     def test_cylinder_topple(self):
@@ -105,9 +129,7 @@ class TestSandPile(unittest.TestCase):
                     [0, 0, 0, 0]]
         pile.grid=np.array(start)
         pile.simulate(1, site=(0,0))
-        print(pile.grid)
         self.assertEqual((pile.grid == expected).all(), True)
-        print(pile.area_history)
         #self.assertEqual((pile.area_history == [9]), True)
 
 if __name__ == '__main__':

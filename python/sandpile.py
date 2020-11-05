@@ -1,5 +1,5 @@
 import numpy as np
-from scipy.stats import pearsonr    # For calculating correlations
+from scipy.stats import spearmanr    # For calculating correlations
 from matplotlib import pyplot       # For plotting
 import sys                          # For printing to files
 from pathlib import Path            # Create output directory
@@ -150,8 +150,11 @@ class SandPile:
             sites_affected.add(self.get_1D_coord(current))
             distance = max(distance, self.dist(start, current))
 
+            # If there was a topple, increment topples
+            # and append the affected sites to buffer
             if len(current_neighbors) > 0:
                 buffer.extend(current_neighbors)
+                topples += 1
 
             # Need to make sure that the current site is actually stable
             if self.grid[tuple(current)] >= 4:
@@ -159,7 +162,6 @@ class SandPile:
 
             # Remove the first element
             buffer = buffer[1:]
-            topples += 1
 
         # Update statistics
         self.mass_history.append(self.mass())
@@ -255,20 +257,17 @@ class SandPile:
         # will be a multiple of 4. Only look at these
         # when we compute our power law to see if this gives a better
         # result
-        ax.set_title("Topples History")
-        common_topples = [
-            topple for topple in self.topples_history if topple % 4 != 0]
-        _, _, topples_exponent, intercept = self.get_statistics(
-            common_topples)
-        topples_data, topples_frequency, _, _ = self.get_statistics(
-            self.topples_history)
         ax.set_xlabel("Topples")
         ax.set_ylabel("Frequency")
+        topples_data, topples_frequency, topples_exponent, intercept = self.get_statistics(
+            self.topples_history)
         self.make_powerlaw_plot(
             topples_data, topples_frequency, ax, exponent=topples_exponent, intercept=intercept)
         fig.savefig(output + 'topplesAnalysis.png')
         pyplot.cla()  # clear axis
 
+        ax.set_xlabel("Topples")
+        ax.set_ylabel("Frequency")
         self.make_powerlaw_plot(
             topples_data, topples_frequency, ax)
         fig.savefig(output + 'topples.png')
@@ -277,8 +276,7 @@ class SandPile:
 
     def graph_length(self, output, fig, ax):
         # Plot Length
-        ax.set_title("Length")
-        ax.set_xlabel("Length of avalanche")
+        ax.set_xlabel("Length")
         ax.set_ylabel("Frequency")
         length_data, length_frequency, length_exponent, intercept = self.get_statistics(
             self.length_history, upper=(self.width+self.height) / 2)
@@ -286,6 +284,9 @@ class SandPile:
             length_data, length_frequency, ax, exponent=length_exponent, intercept=intercept)
         fig.savefig(output + 'lengthAnalysis.png')
         pyplot.cla()  # clear axis
+
+        ax.set_xlabel("Length")
+        ax.set_ylabel("Frequency")
         self.make_powerlaw_plot(
             length_data, length_frequency, ax)
         fig.savefig(output + 'length.png')
@@ -295,16 +296,18 @@ class SandPile:
 
     def graph_area(self, output, fig, ax):
         # Plot area
-        ax.set_title("Area")
         ax.set_xlabel("Area")
         ax.set_ylabel("Frequency")
         area_data, area_frequency, area_exponent, intercept = self.get_statistics(
             self.area_history, upper=min((self.width*self.height)/2, 300),
-            lower=20)
+            lower=min(self.width, self.height, 20))
         self.make_powerlaw_plot(
             area_data, area_frequency, ax, exponent=area_exponent, intercept=intercept)
         fig.savefig(output + 'areaAnalysis.png')
         pyplot.cla()
+        # Plot without analysis
+        ax.set_xlabel("Area")
+        ax.set_ylabel("Frequency")
         self.make_powerlaw_plot(
             area_data, area_frequency, ax)
         fig.savefig(output + 'area.png')
@@ -313,7 +316,6 @@ class SandPile:
         return area_exponent
 
     def graph_density(self, output, fig, ax):
-        ax.set_title("Mass Density")
         ax.set_xlabel("Density")
         ax.set_ylabel("Frequency")
         start = self.get_start_index() + 1  # Add one since we have a leading 0
@@ -322,7 +324,14 @@ class SandPile:
         counts = np.unique(data[start:], return_counts=True)
         ax.scatter(counts[0], counts[1])
         fig.savefig(output+'mass.png')
-        pyplot.close(fig)
+        pyplot.cla()
+
+        # Show the grid in gray scale
+        fig2, ax2 = pyplot.subplots(constrained_layout=True)
+        psm = ax2.pcolormesh(self.grid, cmap='inferno', vmin=0, vmax=3)
+        fig2.colorbar(psm, ax=ax2)
+        fig2.savefig(output+'grid.png')
+        pyplot.close(fig2)
 
         return mean_density
 
@@ -345,6 +354,9 @@ class SandPile:
         area_exponent = self.graph_area(output, fig, ax)
         mean_density = self.graph_density(output, fig, ax)
         self.print_correlation(output + 'correlation.txt')
+
+        # Close the figure
+        pyplot.close(fig)
         return [topples_exponent, length_exponent, area_exponent, mean_density]
 
     def get_statistics(self, field, upper=102, lower=3):
@@ -395,7 +407,7 @@ class SandPile:
             axis.legend(['a =' + np.str(np.round(exponent, 3))])
 
     def correlation(self, data1, data2):
-        return pearsonr(data1, data2)
+        return spearmanr(data1, data2)
 
     def calculate_correlations(self):
         ''' Calculates the correlation between area and 1) length 2) mass loss 3) topple number
@@ -403,7 +415,6 @@ class SandPile:
             area and each of the quantities in the above order:
             area-length correlation, area-mass loss correlation, area - topples number
         '''
-
         start = self.get_start_index()
         len_data = np.array(self.length_history[start:])
         area_data = np.array(self.area_history[start:])

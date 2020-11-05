@@ -37,7 +37,7 @@ def wrapper(i):
         pile = HourGlassSandPile(50, 50, random=True)
         return simulate_pile(pile, 100000, "results/hg50x50/", no_mass=False)
     if i == 6:
-        pile = SandPile(50, 50, random=True)
+        pile = SandPile(100, 100, random=True)
         return simulate_pile(pile, 100000, "results/s100x100/", no_mass=False)
 
 
@@ -51,7 +51,7 @@ def main():
     if not output_dir.is_dir():
         output_dir.mkdir()
     results = Parallel(n_jobs=3)(delayed(wrapper)(i)
-                                   for i in range(6))
+                                   for i in range(7))
 
 
 if __name__ == "__main__":

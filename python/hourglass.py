@@ -15,6 +15,12 @@ class HourGlassSandPile(SandPile):
     def __init__(self, width, height, threshold=4, random=False):
         SandPile.__init__(self, width, height,
                           threshold=threshold, random=random)
+        if random==True:
+            for i in range(width):
+                for j in range(width):
+                    if self.is_central([i,j]):
+                        self.grid[i,j] = 0
+
 
     def is_central(self, site):
         """
@@ -26,7 +32,7 @@ class HourGlassSandPile(SandPile):
         y = site[1]
         middle_x = np.floor(self.width / 2)
         middle_y = np.floor(self.height / 2)
-        if abs(x-middle_x) < 4 and abs(y-middle_y) < 4:
+        if abs(x-middle_x) < 2 and abs(y-middle_y) < 2:
             return True
         else:
             return False

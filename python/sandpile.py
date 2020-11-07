@@ -3,11 +3,10 @@ from scipy.stats import spearmanr    # For calculating correlations
 from matplotlib import pyplot       # For plotting
 import sys                          # For printing to files
 from pathlib import Path            # Create output directory
-from numba import jit, boolean, int64
-
 
 class SandPile:
-    """SandPile class
+    """
+    SandPile class
     """
 
     def __init__(self, width, height, threshold=4, random=False):
@@ -37,17 +36,15 @@ class SandPile:
 
     def drop_sand(self, n=1, site=None):
         """Add `n` grains of sand to the grid.  Each grains of sand is added to
-        a random site.
+        a random site if not site is given as an argument.
 
-        This function also increments the time by 1 and update the internal
-        `mass_history`.
         Parameters
         ==========
         n: int
           The number of grains of sand of drop at this time step.  If left
           unspecified, defaults to 1.
 
-        site:
+        site: tuple or list of coordinates
           The site on which the grain(s) of sand should be dropped.  If `None`,
           a random site is used.
         """
@@ -64,16 +61,19 @@ class SandPile:
         self.avalanche(place)
 
     def mass(self):
-        """Return the mass of the grid."""
+        """Return the total mass of the grid."""
         return np.sum(self.grid)
 
     def get_neighbors(self, site):
         """
-        site: a list of coordinates
         Returns a list containing the coordinates of its
         nearest neighboring sites. If this list is shorter than 4, then
         it is on a boundary and thus sand toppled from this site will be deleted
         Neighbors returned in order Left, Right, Up, Down if these exist
+
+        Parameters
+        ==========
+        site: a tuple or list of coordinates
         """
         ret = []
         x = site[0]
@@ -89,27 +89,16 @@ class SandPile:
 
         return ret
 
-    def evolve(self):
-        '''Evolve from the given configuration (possibly unstable) untill all sites are less than the threshold.'''
-        # Better way: find all the unstable sites and start toppling them
-        unstable = np.zeros((1, 2), dtype=int)
-        for i in range(0, self.width):
-            for j in range(0, self.height):
-                if self.grid[i, j] >= self.threshold:
-                    unstable = np.concatenate((unstable, [[i, j]]))
-
-        # Topple until there is nothing left to topple
-        while len(unstable) > 0:
-            did_topple = self.topple(unstable[0])
-            if did_topple == True:
-                neighbors = self.get_neighbors(unstable[0])
-                unstable = np.concatenate((unstable, neighbors))
-
-            unstable = unstable[1:]  # Remove current element
-
     def topple(self, site):
-        ''' Topples a site, if the number of grains is greater than the threshold
-        Returns a boolean indicating whether toppling occured '''
+        """
+        Topples a site, if the number of grains is greater than the threshold
+        Returns a list of affected neighbors.
+        The returned list is empty if `site` is stable and did not topple
+
+        Parameters
+        ==========
+        site: tuple or list of coordinates
+        """
         # Use tuple below because a list will not index properly (learned this the hard way)
         # Also, using a tuple instead of explicit destructuring means it will be easier
         # to extend to higher dimensional grid if desired
@@ -128,7 +117,10 @@ class SandPile:
         """Run the avalanche causing all sites to topple and store the stats of
         the avalanche in the appropriate variables.
         start: site sand is dropped, beginning cascade
-        n: number of grains added
+
+        Parameters
+        ==========
+        start: tuple or list of coordinates of the site where the avalanche began
         """
         buffer = self.topple(start)
 
@@ -157,7 +149,7 @@ class SandPile:
                 topples += 1
 
             # Need to make sure that the current site is actually stable
-            if self.grid[tuple(current)] >= 4:
+            if self.grid[tuple(current)] >= self.threshold:
                 buffer.append(current)
 
             # Remove the first element
@@ -170,45 +162,104 @@ class SandPile:
         self.length_history.append(distance)
 
     def dist(self, x, y):
-        '''Distance between two sites x,y'''
+        """
+        Distance between two sites x,y
+
+        Parameters
+        ==========
+        x: tuple or list of coordinates
+        y: tuple or list of coordinates
+        """
         # Make distance the manhattan distance
         return abs(x[0] - y[0]) + abs(x[1]-y[1])
 
     def simulate(self, steps, n=1, site=None):
-        ''' Evolve the system by dropping sand on the lattice
+        """
+        Evolve the system by dropping sand on the lattice
 
-        steps: number of steps to evolve
-        n: number of grains to drop per step
-        site: coordinates (list/tuple) of site to drop on;
+        Parameters
+        ==========
+        steps: int, number of steps to evolve
+        n: int, number of grains to drop per step
+        site: tuple or list of coordinates of site to drop grains on;
             if none specified, drops are made on a random site
-        '''
-        for i in range(steps):
+        """
+        for _ in range(steps):
             self.drop_sand(n, site)
 
-    def ensemble_simulate(self, width, height, number_runs, n=1, site=None):
+    # In a refactor, this function uses logic very similar to that
+    # of the avalanche function; this could likely be split out into
+    # a separate function and re-used in both locations
+    def stabilize(self):
+        """
+        Evolve from the current grid (possibly unstable) until all sites are less than the threshold.
+        For use in ensemble simulations where the grid is initialized to have a value higher than
+        the threshold and allow to relax to a stable configuration.
+        """
+        # Find all the unstable sites and start toppling them
+        unstable = []
+        for i in range(0, self.width):
+            for j in range(0, self.height):
+                if self.grid[i, j] >= self.threshold:
+                    unstable.append((i, j))
+
+        # Topple until there is nothing left to topple
+        while len(unstable) > 0:
+            affected_neighbors = self.topple(unstable[0])
+
+            if len(affected_neighbors) > 0:
+                unstable.extend(affected_neighbors)
+
+            # Need to make sure that the current site is actually stable
+            if self.grid[tuple(unstable[0])] >= self.threshold:
+                unstable.append(unstable[0])
+
+            unstable = unstable[1:]  # Remove current element
+
+    @staticmethod
+    def ensemble_simulate(width, height, number_runs, n=1, site=None, output='ensemble/'):
+        """
+        Create an ensemble of sandpiles and collect statistics about them.
+        To not have statistics which are warped by
+        the random initialization, create a pile which is
+        unstable, stabilize it, and then collect five statistics
+        from it. Note there are many other possible ways to perform an ensemble
+        simulation.
+
+        Parameters
+        ==========
+        width: int, width of lattices
+        height: int, height of lattices
+        number_runs: int, number of systems to collect data on
+        n: int, number of grains to drop each simulation
+        site: tuple or list of coordinates to drop grains on
+        """
         length_hist = []
         area = []
         topples = []
         mass_history = []
-        for i in range(0, number_runs):
-            pile = SandPile(width, height, 4, True)
-            pile.evolve()
-            pile.drop_sand(n, site)
+        for _ in range(0, number_runs):
+            pile = SandPile(width, height, threshold=5, random=True)
+            pile.threshold = 4
+            pile.stabilize()
+            pile.simulate(50, n, site)
             # Need to use .extend not .append because list
-            length_hist.extend(pile.length_history)
-            area.extend(pile.area_history)
-            topples.extend(pile.topples_history)
-            mass_history.append(pile.mass())
+            length_hist.extend(pile.length_history[-1:])
+            area.extend(pile.area_history[-1:])
+            topples.extend(pile.topples_history[-1:])
+            mass_history.extend(pile.mass_history[-1:])
 
         # Plot results
         pile = SandPile(width, height)
+        pile.pre_critical = False
         pile.length_history = length_hist
         pile.area_history = area
         pile.topples_history = topples
         pile.mass_history = mass_history
         # Insert a 0 at beginning so all our correlations are properly aligned
         pile.mass_history.insert(0, 0)
-        pile.graph('ensemble1/')
+        pile.graph(output, no_grid=True)
+        return pile
 
     def get_1D_coord(self, site):
         '''A higher dimensional array can be uniquely mapped to a 1D array
@@ -216,17 +267,27 @@ class SandPile:
 
         return self.width*site[0] + site[1]
 
+    # In a larger project, we would likely want to split out the following methods
+    # into a separate class or interface as they are really helper functions
+    # for displaying and recording results and not directly tied to the actual
+    # details of the sand pile. However, because of the limited scope of this
+    # project, it was not worth abstracting these into a separate class
+    # as we will not be re-using them
     def graph_loss(self, output, no_mass, fig, ax):
+        """
+        Graph the mass loss as a power law.
+        """
         if no_mass == False:
-            ax.set_title("Mass loss:")
-
             # Shift mass loss and multiply by -1 so we can take log
             loss_history = np.array([self.mass_history[i+1] - self.mass_history[i]
                                      for i in range(0, len(self.mass_history)-1)])
             max_loss = np.max(loss_history)
             scaled_history = -1 * (loss_history - max_loss)
+
+            # The upper and lower bounds are best guesses about what are good
+            # ranges to fit power laws
             loss_data, loss_frequency, exponent, intercept = self.get_statistics(
-                scaled_history, lower=max_loss, upper=max_loss*1.5)
+                scaled_history, lower=max_loss, upper=max_loss*1.2)
 
             ax.set_xlabel("Mass Loss")
             ax.set_ylabel("Frequency")
@@ -234,16 +295,16 @@ class SandPile:
                 loss_data, loss_frequency, ax, exponent=exponent, intercept=intercept)
 
             # Mass sizes overlap if we are not careful
-            pyplot.setp(ax.get_xticklabels(), ha="right", rotation=45)
-            fig.savefig(output + 'lossAnalysis.png')
+            pyplot.xticks(rotation=90)
+            pyplot.savefig(output + 'lossAnalysis.png')
             pyplot.cla()  # clear axis
 
             self.make_powerlaw_plot(loss_data, loss_frequency, ax)
+            pyplot.xticks(rotation=90)
 
             # Mass size labels overlap if we are not careful
             for label in ax.get_xticklabels():
                 label.set_ha("right")
-                label.set_rotation(45)
 
             fig.savefig(output+'loss.png')
 
@@ -252,11 +313,9 @@ class SandPile:
             return exponent
 
     def graph_topples(self, output, fig, ax):
-        # Plot number of topples
-        # Because of the geometry of the system, we guess most topples
-        # will be a multiple of 4. Only look at these
-        # when we compute our power law to see if this gives a better
-        # result
+        """
+        Graph the topples number as a power law.
+        """
         ax.set_xlabel("Topples")
         ax.set_ylabel("Frequency")
         topples_data, topples_frequency, topples_exponent, intercept = self.get_statistics(
@@ -275,7 +334,9 @@ class SandPile:
         return topples_exponent
 
     def graph_length(self, output, fig, ax):
-        # Plot Length
+        """
+        Graph the length as a power law.
+        """
         ax.set_xlabel("Length")
         ax.set_ylabel("Frequency")
         length_data, length_frequency, length_exponent, intercept = self.get_statistics(
@@ -295,7 +356,9 @@ class SandPile:
         return length_exponent
 
     def graph_area(self, output, fig, ax):
-        # Plot area
+        """
+        Graph the area as a power law.
+        """
         ax.set_xlabel("Area")
         ax.set_ylabel("Frequency")
         area_data, area_frequency, area_exponent, intercept = self.get_statistics(
@@ -315,7 +378,11 @@ class SandPile:
 
         return area_exponent
 
-    def graph_density(self, output, fig, ax):
+    def graph_density(self, output, no_grid, fig, ax):
+        """
+        Graph the mass density as a power law, and the grid
+        as a colormesh.
+        """
         ax.set_xlabel("Density")
         ax.set_ylabel("Frequency")
         start = self.get_start_index() + 1  # Add one since we have a leading 0
@@ -326,16 +393,18 @@ class SandPile:
         fig.savefig(output+'mass.png')
         pyplot.cla()
 
-        # Show the grid in gray scale
-        fig2, ax2 = pyplot.subplots(constrained_layout=True)
-        psm = ax2.pcolormesh(self.grid, cmap='inferno', vmin=0, vmax=3)
-        fig2.colorbar(psm, ax=ax2)
-        fig2.savefig(output+'grid.png')
-        pyplot.close(fig2)
+        # Show the grid if desired scale
+        if no_grid == False:
+            fig2, ax2 = pyplot.subplots(constrained_layout=True)
+            psm = ax2.pcolormesh(self.grid, cmap='inferno', vmin=0, vmax=3)
+            fig2.colorbar(psm, ax=ax2)
+            fig2.savefig(output+'grid.png')
+            pyplot.close(fig2)
 
+            np.savetxt(output + 'grid.txt', self.grid, delimiter=',')
         return mean_density
 
-    def graph(self, output='results/output/', no_mass=False):
+    def graph(self, output='results/output/', no_mass=False, no_grid=False):
         '''
         Save plots of the important figures and the correlation between them
         to the 'output' directory.
@@ -352,7 +421,7 @@ class SandPile:
         topples_exponent = self.graph_topples(output, fig, ax)
         length_exponent = self.graph_length(output, fig, ax)
         area_exponent = self.graph_area(output, fig, ax)
-        mean_density = self.graph_density(output, fig, ax)
+        mean_density = self.graph_density(output, no_grid, fig, ax)
         self.print_correlation(output + 'correlation.txt')
 
         # Close the figure
@@ -390,7 +459,9 @@ class SandPile:
         return [log_data, log_frequency, exponent, intercept]
 
     def make_powerlaw_plot(self, log_data, log_frequency, axis, exponent=None, intercept=None):
-        '''Make a log-log plot of a power law, with data'''
+        """
+        Make a log-log plot of a power law, with data
+        """
         axis.set_yscale('log')
         axis.set_xscale('log')
         axis.scatter(np.exp(log_data), np.exp(log_frequency))
@@ -410,11 +481,12 @@ class SandPile:
         return spearmanr(data1, data2)
 
     def calculate_correlations(self):
-        ''' Calculates the correlation between area and 1) length 2) mass loss 3) topple number
-            It returns a list containing the correlation coefficients calculated between
-            area and each of the quantities in the above order:
-            area-length correlation, area-mass loss correlation, area - topples number
-        '''
+        """
+        Calculates the correlation between area and 1) length 2) mass loss 3) topple number.
+        Returns a list containing the correlation coefficients calculated between
+        area and each of the quantities in the above order:
+        area-length correlation, area-mass loss correlation, area-topples number.
+        """
         start = self.get_start_index()
         len_data = np.array(self.length_history[start:])
         area_data = np.array(self.area_history[start:])

@@ -53,6 +53,5 @@ def main():
     results = Parallel(n_jobs=3)(delayed(wrapper)(i)
                                    for i in range(7))
 
-
 if __name__ == "__main__":
     main()

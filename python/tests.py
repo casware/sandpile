@@ -66,8 +66,6 @@ class TestSandPile(unittest.TestCase):
         pile.grid[1, 0] = 3
         pile.grid[0, 1] = 2
         pile.drop_sand(1, (0,0))
-        print(pile.topples_history)
-        print(pile.grid)
 
         # Make sure the stats are collected properly
         self.assertEqual((pile.area_history == [5]), True)
@@ -116,6 +114,33 @@ class TestSandPile(unittest.TestCase):
         self.assertEqual((pile.dist([3, 0], [0, 0]) == 3), True)
         self.assertEqual((pile.dist([5, 0], [0, 0]) == 1), True)
         self.assertEqual((pile.dist([0, 0], [5, 4]) == 3), True)
+
+    def test_hourglass_avalanche(self):
+        #  [[3, 3, 0, 0,0,0],
+         # [0,0,0,0,0,0],
+         # [0,0,0,0,0,0],
+         # [0,0,0,0,0,0]]
+
+         # dropping sand on (0,0) should give
+         # [[1,0,1,0,0,1],
+         # [1,1,0,0,0,0],
+         # [0,0,0,0,0,0],
+         # [1,1,0,0,0,0,]]
+        pile = HourGlassSandPile(6, 6)
+        pile.grid[0,0] = 3
+        pile.grid[0,1] = 3
+        pile.drop_sand(site=(0,0))
+        expected = np.array([[1, 0, 1, 0, 0, 1],
+                    [1, 1, 0, 0, 0, 0],
+                    [0, 0, 0, 0, 0, 0],
+                    [0, 0, 0, 0, 0, 0],
+                    [0, 0, 0, 0, 0, 0],
+                    [1, 1, 0, 0, 0, 0]])
+        self.assertEqual((pile.grid == expected).all(), True)
+
+        # drop sand on the central hole should give no change
+        pile.drop_sand(site=(3,3))
+        self.assertEqual((pile.grid == expected).all(), True)
 
     def test_sandpile_numba(self):
         pile = NSP(4,4)

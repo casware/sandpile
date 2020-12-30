@@ -1,3 +1,8 @@
+#################################################
+#   Author: Caleb Smith
+#   Student ID: 1027644
+#   November 9,2020
+#################################################
 import numpy as np
 from scipy.stats import pearsonr    # For calculating correlations
 from matplotlib import pyplot       # For plotting

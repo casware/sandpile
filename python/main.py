@@ -1,4 +1,9 @@
 #!/usr/bin/env python3
+#################################################
+#   Author: Caleb Smith
+#   Student ID: 1027644
+#   November 9,2020
+#################################################
 """Sandpile Lab
 ============
 
@@ -33,12 +38,20 @@ def wrapper(i):
     if i == 4:
         pile = CylindricalSandPile(50, 50, random=True)
         return simulate_pile(pile, 100000, "results/c50x50/", no_mass=False)
+    """
+    Uncomment these lines if you want: they take much longer to run
+    than the others
+
     if i == 5:
         pile = HourGlassSandPile(50, 50, random=True)
         return simulate_pile(pile, 100000, "results/hg50x50/", no_mass=False)
     if i == 6:
         pile = SandPile(100, 100, random=True)
         return simulate_pile(pile, 100000, "results/s100x100/", no_mass=False)
+    """
+
+    if i == 7:
+        SandPile.ensemble_simulate(20, 20, 10000, output='results/ensemble/')
 
 
 def simulate_pile(pile, steps, output, no_mass):
@@ -47,11 +60,13 @@ def simulate_pile(pile, steps, output, no_mass):
 
 
 def main():
+    # Saves results in ./results
     output_dir = Path.cwd() / "results"
     if not output_dir.is_dir():
         output_dir.mkdir()
     results = Parallel(n_jobs=3)(delayed(wrapper)(i)
-                                   for i in range(7))
+                                 for i in range(8))
+
 
 if __name__ == "__main__":
     main()

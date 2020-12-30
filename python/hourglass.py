@@ -1,3 +1,8 @@
+#################################################
+#   Author: Caleb Smith
+#   Student ID: 1027644
+#   November 9,2020
+#################################################
 import numpy as np
 import scipy as sp
 import scipy.stats

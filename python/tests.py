@@ -1,3 +1,8 @@
+#################################################
+#   Author: Caleb Smith
+#   Student ID: 1027644
+#   November 9,2020
+#################################################
 import unittest
 import numpy as np
 from sandpile import SandPile
@@ -21,7 +26,8 @@ class TestSandPile(unittest.TestCase):
         self.assertEqual(pile.mass(), 7)
 
     def test_topple(self):
-        """ Test a single topple (not a complete avalanche)
+        """
+        Test a single topple (not a complete avalanche)
         """
         pile = SandPile(4, 4)
         # Start with

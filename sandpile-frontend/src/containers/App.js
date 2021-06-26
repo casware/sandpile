@@ -1,23 +1,35 @@
 import logo from "../static/logo.svg";
-import "./App.css";
-
+import SandpileOptions from "components/SandpileOptions/index";
+import SandpileVisualizer from "components/SandpileVisualizer/index";
+import Grid from "@material-ui/core/Grid";
+import Typography from "@material-ui/core/Typography";
 function App() {
   return (
     <div className="App">
-      <header className="App-header">
-        <img src={logo} className="App-logo" alt="logo" />
-        <p>
-          Edit <code>src/App.js</code> and save to reload.
-        </p>
-        <a
-          className="App-link"
-          href="https://reactjs.org"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Learn React
-        </a>
-      </header>
+      <Grid
+        container
+        direction="column"
+        alignItems="center"
+        sm={12}
+        justify="center"
+      >
+        <Grid item>
+          <Typography variant="h1" color="textPrimary">
+            Grains of Sand
+          </Typography>
+        </Grid>
+        <Grid item>
+          <Typography variant="h3" color="textSecondary">
+            Bak-Tang-Wiesenfeld Model of Criticality
+          </Typography>
+        </Grid>
+        <Grid item>
+          <SandpileOptions />
+        </Grid>
+        <Grid item>
+          <SandpileVisualizer />
+        </Grid>
+      </Grid>
     </div>
   );
 }

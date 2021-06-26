@@ -5,17 +5,14 @@
 #   November 9,2020
 #################################################
 """Sandpile Lab
-============
-
 This is the main file from which we run all the various routines in the
 sandpile lab.
-
 """
 from pathlib import Path
 
-import matplotlib
 import numpy as np
 from joblib import Parallel, delayed  # multi-processing
+import io
 
 from sandpile import SandPile
 from cylindrical import CylindricalSandPile
@@ -66,6 +63,19 @@ def main():
         output_dir.mkdir()
     results = Parallel(n_jobs=3)(delayed(wrapper)(i)
                                  for i in range(8))
+
+
+def main_bytes_image(iterations=1000, width=100, height=100):
+    # Saves results in ./results
+    output_dir = Path.cwd() / "results"
+    if not output_dir.is_dir():
+        output_dir.mkdir()
+
+    pile = SandPile(width, height, random=False)
+    site_x = round(width / 2)
+    site_y = round(height / 2)
+    pile.simulate(iterations, site=(site_x, site_y))
+    return pile.graph_grid()
 
 
 if __name__ == "__main__":

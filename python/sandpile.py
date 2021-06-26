@@ -8,6 +8,8 @@ from scipy.stats import spearmanr    # For calculating correlations
 from matplotlib import pyplot       # For plotting
 import sys                          # For printing to files
 from pathlib import Path            # Create output directory
+import io
+
 
 class SandPile:
     """
@@ -533,3 +535,15 @@ class SandPile:
                 'Area-Topples Correlation: {}: pvalue: {}'.format(correlations[2][0], correlations[2][1]))
             print('Average Mass: {}'.format(mass_average))
             sys.stdout = original_stdout  # Reset the standard output to its original value
+
+    def graph_grid(self):
+        fig2, ax2 = pyplot.subplots(constrained_layout=True)
+        psm = ax2.pcolormesh(self.grid, cmap='inferno', vmin=0, vmax=3)
+        fig2.colorbar(psm, ax=ax2)
+
+        bytes_image = io.BytesIO()
+        fig2.savefig(bytes_image, format='png')
+        bytes_image.seek(0)
+        pyplot.close(fig2)
+
+        return bytes_image

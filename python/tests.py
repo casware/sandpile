@@ -1,7 +1,7 @@
 #################################################
 #   Author: Caleb Smith
 #   Student ID: 1027644
-#   November 9,2020
+#   November 9, 2020
 #################################################
 import unittest
 import numpy as np

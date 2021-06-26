@@ -6,13 +6,7 @@ import Typography from "@material-ui/core/Typography";
 function App() {
   return (
     <div className="App">
-      <Grid
-        container
-        direction="column"
-        alignItems="center"
-        sm={12}
-        justify="center"
-      >
+      <Grid container direction="column" alignItems="center" justify="center">
         <Grid item>
           <Typography variant="h1" color="textPrimary">
             Grains of Sand

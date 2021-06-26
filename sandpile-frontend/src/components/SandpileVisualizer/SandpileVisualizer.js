@@ -1,7 +1,18 @@
-import React, { useState } from "react";
+import React from "react";
+import useSandpileVisualizer from "./SandpileVisualizer.hooks";
 
 const SandpileVisualizer = () => {
-  return <div>This will be a sandpile chart.</div>;
+  //const { image } = useSandpileVisualizer();
+  return (
+    <div>
+      <img
+        src="http://localhost:5000/plots"
+        alt="No image found"
+        width={640}
+        height={480}
+      />
+    </div>
+  );
 };
 
 export default SandpileVisualizer;

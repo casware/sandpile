@@ -66,16 +66,18 @@ def main():
 
 
 def main_bytes_image(iterations=1000, width=100, height=100):
-    # Saves results in ./results
-    output_dir = Path.cwd() / "results"
-    if not output_dir.is_dir():
-        output_dir.mkdir()
-
     pile = SandPile(width, height, random=False)
     site_x = round(width / 2)
     site_y = round(height / 2)
     pile.simulate(iterations, site=(site_x, site_y))
     return pile.graph_grid()
+
+def main_grid(iterations=1000, width=100, height=100):
+    pile = SandPile(width, height, random=False)
+    site_x = round(width / 2)
+    site_y = round(height / 2)
+    pile.simulate(iterations, site=(site_x, site_y))
+    return np.ndarray.tolist(pile.grid)
 
 
 if __name__ == "__main__":
